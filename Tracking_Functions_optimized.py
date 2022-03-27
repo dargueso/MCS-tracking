@@ -1371,7 +1371,8 @@ def MultiObjectIdentification(
 
         # PR area defines MCS area and precipitation
         window_length = int(MCS_minTime/dT)
-        moving_averages = np.convolve(MCS_TEST, np.ones(window_length), 'valid') / window_length
+        cumulative_sum = np.cumsum(np.insert(MCS_TEST, 0, 0))
+        moving_averages = (cumulative_sum[window_length:] - cumulative_sum[:-window_length]) / window_length
         if np.max(moving_averages) == 1:
             TMP = np.copy(MCS_obj[Objects[ii]])
             TMP = TMP + ObjACT
