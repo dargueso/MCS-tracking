@@ -1,0 +1,16 @@
+
+*.nc4
+*.nc
+PR_201607
+PR_201309
+*.npz
+MCS_201607
+MCS_201309
+CONUS_merg_20160701_4km-pixel.tar.gz64sxjvbftmp
+CONUS_merg_20160701_4km-pixel.tar.gz
+CONUS_3B-HHR.MS.MRG.3IMERG.20160701.tar.gz
+Clouds_201309
+Clouds_201607
+*.pyc
+*.pyc
+__pycache__/Tracking_Functions_optimized.cpython-38.pyc
