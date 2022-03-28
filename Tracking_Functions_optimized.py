@@ -35,7 +35,7 @@ from metpy import calc
 from tqdm import tqdm
 
 from constants import const
-
+import mcs_config as cfg
 
 
 ###########################################################
@@ -2151,7 +2151,6 @@ def readMERGIR(TimeBT, Lon, Lat, dT, FocusRegion):
 ###########################################################
 #### ======================================================
 # function to perform MCS tracking
-
 def MCStracking(
     DATA_all,
     Time,
@@ -2159,26 +2158,30 @@ def MCStracking(
     Lat,
     Variables,
     dT,  # time step of data in hours
-    SmoothSigmaP=0,  # Gaussion std for precipitation smoothing
-    Pthreshold=2,  # precipitation threshold [mm/h]
-    MinTimePR=3,  # minum lifetime of PR feature in hours
-    MinAreaPR=5000,  # minimum area of precipitation feature in km2
-    # Brightness temperature (Tb) tracking setup
-    SmoothSigmaC=0,  # Gaussion std for Tb smoothing
-    Cthreshold=241,  # minimum Tb of cloud shield
-    MinTimeC=9,  # minium lifetime of cloud shield in hours
-    MinAreaC=40000,  # minimum area of cloud shield in km2
-    # MCs detection
-    MCS_Minsize=5000,  # km2
-    MCS_minPR=10,  # minimum max precipitation in mm/h
-    MCS_MinPeakPR=10,  # Minimum lifetime peak of MCS precipitation
-    CL_MaxT=225,  # minimum brightness temperature
-    CL_Area=40000,  # min cloud area size in km2
-    MCS_minTime=4,  # minimum time step
-    NCfile="CONUS-MCS-tracking.nc",
+    NCfile
 ):
     """ Function to track MCS from precipitation and brightness temperature
     """
+
+    #Reading tracking parameters
+
+    #Precipitation tracking setup
+    SmoothSigmaP    = cfg.SmoothSigmaP   # [0] Gaussion std for precipitation smoothing
+    Pthreshold      = cfg.Pthreshold     # [2] precipitation threshold [mm/h]
+    MinTimePR       = cfg.MinTimePR      # [3] minum lifetime of PR feature in hours
+    MinAreaPR       = cfg.MinAreaPR      # [5000] minimum area of precipitation feature in km2
+    # Brightness temperature (Tb) tracking setup
+    SmoothSigmaC    = cfg.SmoothSigmaC   #  [0] Gaussion std for Tb smoothing
+    Cthreshold      = cfg.Cthreshold     # [241] minimum Tb of cloud shield
+    MinTimeC        = cfg.MinTimeC       # [9] minium lifetime of cloud shield in hours
+    MinAreaC        = cfg.MinAreaC       # [40000] minimum area of cloud shield in km2
+    # MCs detection
+    MCS_Minsize     = cfg.MCS_Minsize    # [5000] km2
+    MCS_minPR       = cfg.MCS_minPR      # [10] minimum max precipitation in mm/h
+    MCS_MinPeakPR   = cfg.MCS_MinPeakPR  # [10] Minimum lifetime peak of MCS precipitation
+    CL_MaxT         = cfg.CL_MaxT        # [225] minimum brightness temperature
+    CL_Area         = cfg.CL_Area        # [40000] min cloud area size in km2
+    MCS_minTime     = cfg.MCS_minTime    # [4] minimum time step
 
     #Calculating grid distances and areas
 

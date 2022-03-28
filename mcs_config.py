@@ -1,25 +1,5 @@
-path_in = "/vg6/dargueso-NO-BKUP/postprocessed/unified/EPICC/"
-patt_in = "UIB"
-path_out = "/home/dargueso/Analyses/EPICC/"
-path_cmaps = "/home/dargueso/share/colormaps/"
-geoem_in = "/home/dargueso/share/geo_em_files/EPICC"
-path_bdy = "/home/dargueso/OBS_DATA/ERA5/"
-patt_bdy = "era5_monthly_prec"
-bdy_data = "ERA5"
-path_wrfout = "/vg6/dargueso-NO-BKUP/WRF_OUT/EPICC"
-path_postproc = "/vg6/dargueso-NO-BKUP/postprocessed/unified/EPICC/"
 
-syear = 2013
-eyear = 2020
-
-smonth = 1
-emonth = 12
-
-wrf_runs = ['EPICC_2km_ERA5_HVC_GWD','EPICC_2km_ERA5_CMIP6anom_HVC_GWD']
-wrun_ref = 'EPICC_2km_ERA5_HVC_GWD'
-geofile_ref = f'{geoem_in}/geo_em.d01.EPICC_2km_ERA5_HVC_GWD.nc'
-file_ref = 'wrfout_d01_2020-08-01_00:00:00'
-
+path_in = "/vg6/dargueso-NO-BKUP/postprocessed/unified/EPICC/EPICC_2km_ERA5_HVC_GWD/"
 
 ## MCS config
 
@@ -27,7 +7,7 @@ Variables = ["PR", "Tb"]
 
 # MINIMUM REQUIREMENTS FOR FEATURE DETECTION
 # precipitation tracking options
-SmoothSigmaP = 0  # Gaussion std for precipitation smoothing
+SmoothSigmaP = 0 # Gaussion std for precipitation smoothing
 Pthreshold = 5  # precipitation threshold [mm/h]
 MinTimePR = 3  # minum lifetime of PR feature in hours
 MinAreaPR = 500  # minimum area of precipitation feature in km2

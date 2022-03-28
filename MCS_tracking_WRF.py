@@ -35,20 +35,6 @@ from constants import const
 from tracking_functions_optimized import MCStracking
 
 ###########################################################
-############# USER MODIF ##################################
-
-wrf_runs = cfg.wrf_runs
-wrun = wrf_runs[0]
-FREQ = "01H"
-
-DT = 1
-
-############# END OF USER MODIF ###########################
-###########################################################
-
-
-
-###########################################################
 ###########################################################
 
 
@@ -57,7 +43,7 @@ def main():
     """
 
     filesin = sorted(
-        glob(f"{cfg.path_in}/{wrun}/{cfg.patt_in}_{FREQ}_RAIN_201[3-4]-09.nc")
+        glob(f"{cfg.path_in}/{wrun}/UIB_01H_RAIN_201[3-4]-09.nc")
     )
     Parallel(n_jobs=1)(delayed(storm_tracking)(fin_name) for fin_name in filesin)
 
@@ -96,7 +82,7 @@ def storm_tracking(pr_finname):
         int(rain.time.isel(time=-1).dt.day),
         int(rain.time.isel(time=-1).dt.hour),
     )
-    times = pd.date_range(sdate, end=edate, freq=FREQ)
+    times = pd.date_range(sdate, end=edate, freq='1H')
 
     ###########################################################
     ###########################################################
@@ -111,20 +97,6 @@ def storm_tracking(pr_finname):
         lat,
         cfg.Variables,
         DT,
-        SmoothSigmaP    =   cfg.SmoothSigmaP,
-        Pthreshold      =   cfg.Pthreshold,
-        MinTimePR       =   cfg.MinTimePR,
-        MinAreaPR       =   cfg.MinAreaPR,
-        SmoothSigmaC    =   cfg.SmoothSigmaC,
-        Cthreshold      =   cfg.Cthreshold,
-        MinTimeC        =   cfg.MinTimeC,
-        MinAreaC        =   cfg.MinAreaC,
-        MCS_Minsize     =   cfg.MCS_Minsize,
-        MCS_minPR       =   cfg.MCS_minPR,
-        MCS_MinPeakPR   =   cfg.MCS_MinPeakPR,
-        CL_MaxT         =   cfg.CL_MaxT,
-        CL_Area         =   cfg.CL_Area,
-        MCS_minTime     =   cfg.MCS_minTime,
         NCfile          =   fileout,
     )
 
