@@ -28,11 +28,72 @@ from scipy.ndimage import morphology
 from scipy.spatial import ConvexHull,qhull
 from scipy import ndimage
 
-from metpy import calc,units
+from metpy import calc
+
 
 
 from tqdm import tqdm
 
+from constants import const
+
+
+
+###########################################################
+###########################################################
+
+### UTILITY Functions
+def calc_grid_distance_area(lat,lon):
+    """ Function to calculate grid parameters
+        It uses haversine function to approximate distances
+        It approximates the first row and column to the sencond
+        because coordinates of grid cell center are assumed
+        lat, lon: input coordinates(degrees) 2D [y,x] dimensions
+        dx: distance (m)
+        dy: distance (m)
+        area: area of grid cell (m2)
+        grid_distance: average grid distance over the domain (m)
+    """
+    dy = np.zeros(lat.shape)
+    dx = np.zeros(lon.shape)
+
+    dx[:,1:]=haversine(lat[:,1:],lon[:,1:],lat[:,:-1],lon[:,:-1])
+    dy[1:,:]=haversine(lat[1:,:],lon[1:,:],lat[:-1,:],lon[:-1,:])
+
+    dx[:,0] = dx[:,1]
+    dy[0,:] = dy[1,:]
+
+    area = dx*dy
+    grid_distance = np.mean(np.append(dy[:, :, None], dx[:, :, None], axis=2))
+
+    return dx,dy,area,grid_distance
+
+def haversine(lat1, lon1, lat2, lon2):
+
+    """Function to calculate grid distances lat-lon
+       This uses the Haversine formula
+       lat,lon : input coordinates (degrees) - array or float
+       dist_m : distance (m)
+       https://en.wikipedia.org/wiki/Haversine_formula
+       """
+    # convert decimal degrees to radians
+    lon1 = np.radians(lon1)
+    lon2 = np.radians(lon2)
+    lat1 = np.radians(lat1)
+    lat2 = np.radians(lat2)
+
+    # haversine formula
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+    c = 2 * np.arcsin(np.sqrt(a))
+    # Radius of earth in kilometers is 6371
+    dist_m = c * const.earth_radius
+    return dist_m
+
+
+
+###########################################################
+###########################################################
 
 
 def ObjectCharacteristics(
@@ -208,8 +269,8 @@ def detect_local_minima(arr):
 def Feature_Calculation(
     DATA_all,  # np array that contains [time,lat,lon,Variables] with vars
     Variables,  # Variables beeing ['V', 'U', 'T', 'Q', 'SLP']
-    dLon,  # distance between longitude cells
-    dLat,  # distance between latitude cells
+    dx,  # distance between longitude cells
+    dy,  # distance between latitude cells
     Lat,  # Latitude coordinates
     dT,  # time step in hours
     Gridspacing,
@@ -235,8 +296,6 @@ def Feature_Calculation(
     # https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2017GL073662
     UU = DATA_all[:, :, :, Variables.index("U")]
     VV = DATA_all[:, :, :, Variables.index("V")]
-    dx = dLon
-    dy = dLat
     du = np.gradient(UU)
     dv = np.gradient(VV)
     PV = np.abs(dv[-1] / dx[None, :] - du[-2] / dy[None, :])
@@ -287,21 +346,7 @@ def Feature_Calculation(
 # ==============================================================
 # ==============================================================
 
-def haversine(lon1, lat1, lon2, lat2):
-    """
-    Calculate the great circle distance between two points
-    on the earth (specified in decimal degrees)
-    """
-    # convert decimal degrees to radians
-    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-    # haversine formula
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-    c = 2 * asin(sqrt(a))
-    # Radius of earth in kilometers is 6371
-    km = 6371 * c
-    return km
+
 
 
 def ReadERA5(
@@ -710,26 +755,7 @@ def timer(start, end):
 
 
 # from - https://stackoverflow.com/questions/19412462/getting-distance-between-two-points-based-on-latitude-longitude
-def DistanceCoord(Lo1, La1, Lo2, La2):
 
-    from math import sin, cos, sqrt, atan2, radians
-
-    # approximate radius of earth in km
-    R = 6373.0
-
-    lat1 = radians(La1)
-    lon1 = radians(Lo1)
-    lat2 = radians(La2)
-    lon2 = radians(Lo2)
-
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-
-    a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
-    c = 2 * atan2(sqrt(a), sqrt(1 - a))
-
-    distance = R * c
-    return distance
 
 
 import cartopy.io.shapereader as shpreader
@@ -873,19 +899,9 @@ def MultiObjectIdentification(
 ):
 
     Variables = ["V", "U", "T", "Q", "SLP", "IVTE", "IVTN", "PR", "BT"]
-    # calculate grid spacing assuming regular lat/lon grid
-    EarthCircum = 40075000  # [m]
-    dLat = np.copy(Lon)
-    dLat[:] = EarthCircum / (360 / (Lat[1, 0] - Lat[0, 0]))
-    dLon = np.copy(Lon)
-    for la in range(Lat.shape[0]):
-        dLon[la, :] = (
-            EarthCircum
-            / (360 / (Lat[1, 0] - Lat[0, 0]))
-            * np.cos(np.deg2rad(Lat[la, 0]))
-        )
-    Gridspacing = np.mean(np.append(dLat[:, :, None], dLon[:, :, None], axis=2))
-    Area = dLat * dLon
+
+    #Calculate grid spacing and other grid parameters
+    dx,dy,Area,GridSpacing = calc_grid_distance_area(Lat,Lon)
     Area[Area < 0] = 0
 
     rgiObj_Struct = np.zeros((3, 3, 3))
@@ -962,8 +978,6 @@ def MultiObjectIdentification(
     # to https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2017GL073662
     UU = DATA_all[:, :, :, Variables.index("U")]
     VV = DATA_all[:, :, :, Variables.index("V")]
-    dx = dLon
-    dy = dLat
     du = np.gradient(UU)
     dv = np.gradient(VV)
     PV = np.abs(dv[-1] / dx[None, :] - du[-2] / dy[None, :])
@@ -975,8 +989,6 @@ def MultiObjectIdentification(
 
     Tgrad_zero = 0.45  # *100/(np.mean([dLon,dLat], axis=0)/1000.)
                        # 0.45 K/(100 km)
-    import metpy.calc as calc
-    from metpy.units import units
 
     CoriolisPar = calc.coriolis_parameter(np.deg2rad(Lat))
     Frontal_Diagnostic = np.array(Fstar / (CoriolisPar * Tgrad_zero))
@@ -1267,7 +1279,7 @@ def MultiObjectIdentification(
 
             DIST = np.zeros((3))
             for rr in range(3):
-                DIST[rr] = DistanceCoord(
+                DIST[rr] = haversine(
                     BOX[rr][0], BOX[rr][1], BOX[rr + 1][0], BOX[rr + 1][1]
                 )
             OBJ_max_len[tt] = np.max(DIST)
@@ -2135,8 +2147,11 @@ def readMERGIR(TimeBT, Lon, Lat, dT, FocusRegion):
     return CLOUD_DATA
 
 
-#### =========================================================================
+###########################################################
+###########################################################
+#### ======================================================
 # function to perform MCS tracking
+
 def MCStracking(
     DATA_all,
     Time,
@@ -2162,20 +2177,12 @@ def MCStracking(
     MCS_minTime=4,  # minimum time step
     NCfile="CONUS-MCS-tracking.nc",
 ):
+    """ Function to track MCS from precipitation and brightness temperature
+    """
 
-    # Calculate some parameters for the tracking
-    EarthCircum = 40075000  # [m]
-    dLat = np.copy(Lon)
-    dLat[:] = EarthCircum / (360 / (Lat[1, 0] - Lat[0, 0]))
-    dLon = np.copy(Lon)
-    for la in range(Lat.shape[0]):
-        dLon[la, :] = (
-            EarthCircum
-            / (360 / (Lat[1, 0] - Lat[0, 0]))
-            * np.cos(np.deg2rad(Lat[la, 0]))
-        )
-    Gridspacing = np.mean(np.append(dLat[:, :, None], dLon[:, :, None], axis=2))
-    Area = dLat * dLon
+    #Calculating grid distances and areas
+
+    dx,dy,Area,GridSpacing = calc_grid_distance_area(Lat,Lon)
     Area[Area < 0] = 0
 
     rgiObj_Struct = np.zeros((3, 3, 3))
