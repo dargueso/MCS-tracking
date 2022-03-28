@@ -1892,7 +1892,7 @@ def MultiObjectIdentification(
     dataset.createDimension("xc", Lat.shape[1])
     dataset.createDimension("time", None)
 
-    times = dataset.createVariable("time", np.float64, ("time",))
+    otimes = dataset.createVariable("time", np.float64, ("time",))
     lat = dataset.createVariable(
         "lat",
         np.float32,
@@ -1928,8 +1928,8 @@ def MultiObjectIdentification(
     SLP_real = dataset.createVariable("SLP", np.float32, ("time", "yc", "xc"))
     T_real = dataset.createVariable("T850", np.float32, ("time", "yc", "xc"))
 
-    times.calendar = "standard"
-    times.units = (
+    otimes.calendar = "standard"
+    otimes.units = (
         "seconds since "
         + str(times[0].year)
         + "-"
@@ -1942,8 +1942,8 @@ def MultiObjectIdentification(
         + str(times[0].minute).zfill(2)
         + ":00"
     )
-    times.standard_name = "time"
-    times.long_name = "time"
+    otimes.standard_name = "time"
+    otimes.long_name = "time"
 
     lat.long_name = "latitude"
     lat.units = "degrees_north"
@@ -1992,7 +1992,7 @@ def MultiObjectIdentification(
     ARs[:] = AR_obj
     Cloud_real[:] = DATA_all[:, :, :, Variables.index("BT")]
     Cloud_obj[:] = C_objects
-    times[:] = itimes
+    otimes[:] = itimes
 
     dataset.close()
     print("Saved: " + NCfile)
@@ -2447,7 +2447,7 @@ def MCStracking(
     dataset.createDimension("xc", Lat.shape[1])
     dataset.createDimension("time", None)
 
-    times = dataset.createVariable("time", np.float64, ("time",))
+    otimes = dataset.createVariable("time", np.float64, ("time",))
     lat = dataset.createVariable(
         "lat",
         np.float32,
@@ -2470,8 +2470,8 @@ def MCStracking(
     Cloud_real = dataset.createVariable("BT", np.float32, ("time", "yc", "xc"))
     Cloud_obj = dataset.createVariable("BT_Objects", np.float32, ("time", "yc", "xc"))
 
-    times.calendar = "standard"
-    times.units = (
+    otimes.calendar = "standard"
+    otimes.units = (
         "seconds since "
         + str(times[0].year)
         + "-"
@@ -2484,8 +2484,8 @@ def MCStracking(
         + str(times[0].minute).zfill(2)
         + ":00"
     )
-    times.standard_name = "time"
-    times.long_name = "time"
+    otimes.standard_name = "time"
+    otimes.long_name = "time"
 
     lat.long_name = "latitude"
     lat.units = "degrees_north"
@@ -2508,7 +2508,7 @@ def MCStracking(
     MCSs[:] = MCS_obj
     Cloud_real[:] =bt_data
     Cloud_obj[:] = C_objects
-    times[:] = itimes
+    otimes[:] = itimes
 
     dataset.close()
     print("Saved: " + NCfile)
