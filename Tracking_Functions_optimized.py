@@ -1129,7 +1129,7 @@ def MultiObjectIdentification(
     # sort the objects according to their size
     object_indices = ndimage.find_objects(rgiObjectsAR)
 
-    rgiAreaObj = np.array(
+    area_objects = np.array(
         [
             [
                 np.sum(
@@ -1145,16 +1145,16 @@ def MultiObjectIdentification(
     MS_objectsTMP = np.copy(rgiObjectsAR)
     MS_objectsTMP[:] = 0
     ii = 1
-    for ob,_ in enumerate(rgiAreaObj):
+    for ob,_ in enumerate(area_objects):
         AreaTest = np.max(
             np.convolve(
-                np.array(rgiAreaObj[ob]) >= MinAreaMS * 1000**2,
+                np.array(area_objects[ob]) >= MinAreaMS * 1000**2,
                 np.ones(int(MinTimeMS / dT)),
                 mode="valid",
             )
         )
         if (AreaTest == int(MinTimeMS / dT)) & (
-            len(rgiAreaObj[ob]) >= int(MinTimeMS / dT)
+            len(area_objects[ob]) >= int(MinTimeMS / dT)
         ):
             MS_objectsTMP[rgiObjectsAR == (ob + 1)] = ii
             ii = ii + 1
@@ -1477,23 +1477,23 @@ def MultiObjectIdentification(
 
     # # calculate object size
     object_indices = ndimage.find_objects(rgiObjectsUD)
-    rgiAreaObj = np.array(
+    area_objects = np.array(
         [
             np.sum(grid_cell_area[object_indices[ob][1:]][rgiObjectsUD[object_indices[ob]][0, :, :] == ob + 1])
             for ob in range(num_objects)
         ]
     )
 
-    # rgiAreaObj=np.array([np.sum(rgiObjectsUD[object_indices[ob]] == ob+1) for ob in range(num_objects)])
+    # area_objects=np.array([np.sum(rgiObjectsUD[object_indices[ob]] == ob+1) for ob in range(num_objects)])
     # create final object array
     FR_objects = np.copy(rgiObjectsUD)
-    TooSmall = np.where(rgiAreaObj < MinAreaFR * 1000**2)
+    TooSmall = np.where(area_objects < MinAreaFR * 1000**2)
     FR_objects[np.isin(FR_objects, TooSmall[0] + 1)] = 0
 
     #     FR_objects=np.copy(rgiObjectsUD); FR_objects[:]=0
     #     ii = 1
-    #     for ob,_ in enumerate(rgiAreaObj):
-    #         if rgiAreaObj[ob] >= MinAreaFR*1000**2:
+    #     for ob,_ in enumerate(area_objects):
+    #         if area_objects[ob] >= MinAreaFR*1000**2:
     #             FR_objects[rgiObjectsUD == (ob+1)] = ii
     #             ii = ii + 1
     end = time.perf_counter()
@@ -1526,7 +1526,7 @@ def MultiObjectIdentification(
             object_indices[jj] = Dummy
 
     # Remove objects that are too small or short lived
-    rgiAreaObj = np.array(
+    area_objects = np.array(
         [
             [
                 np.sum(
@@ -1542,16 +1542,16 @@ def MultiObjectIdentification(
     # create final object array
     pr_objects = np.zeros(objects_id_pr.shape,dtype=int)
     ii = 1
-    for ob,_ in enumerate(rgiAreaObj):
+    for ob,_ in enumerate(area_objects):
         AreaTest = np.max(
             np.convolve(
-                np.array(rgiAreaObj[ob]) >= MinAreaPR * 1000**2,
+                np.array(area_objects[ob]) >= MinAreaPR * 1000**2,
                 np.ones(int(MinTimePR / dT)),
                 mode="valid",
             )
         )
         if (AreaTest == int(MinTimePR / dT)) & (
-            len(rgiAreaObj[ob]) >= int(MinTimePR / dT)
+            len(area_objects[ob]) >= int(MinTimePR / dT)
         ):
             pr_objects[objects_id_pr == (ob + 1)] = ii
             ii = ii + 1
@@ -1598,7 +1598,7 @@ def MultiObjectIdentification(
     # sort the objects according to their size
     object_indices = ndimage.find_objects(rgiObjectsC)
 
-    rgiAreaObj = np.array(
+    area_objects = np.array(
         [
             [
                 np.sum(
@@ -1618,16 +1618,16 @@ def MultiObjectIdentification(
     C_objects = np.copy(rgiObjectsC)
     C_objects[:] = 0
     ii = 1
-    for ob,_ in enumerate(rgiAreaObj):
+    for ob,_ in enumerate(area_objects):
         AreaTest = np.max(
             np.convolve(
-                np.array(rgiAreaObj[ob]) >= MinAreaC * 1000**2,
+                np.array(area_objects[ob]) >= MinAreaC * 1000**2,
                 np.ones(int(MinTimeC / dT)),
                 mode="valid",
             )
         )
         if (AreaTest == int(MinTimeC / dT)) & (
-            len(rgiAreaObj[ob]) >= int(MinTimeC / dT)
+            len(area_objects[ob]) >= int(MinTimeC / dT)
         ):
             # if rgiVolObjC[ob] >= MinAreaC:
             C_objects[rgiObjectsC == (ob + 1)] = ii
@@ -2225,16 +2225,11 @@ def MCStracking(
     if crosses_dateline is True:
         objects_id_pr = ConnectLon(objects_id_pr)
 
-    # remove None objects
+    # get indices of object to reduce memory requirements during manipulation
     object_indices = ndimage.find_objects(objects_id_pr)
 
-    # Dummy = [slice(0, 1, None), slice(0, 1, None), slice(0, 1, None)]
-    # object_indices = np.array(object_indices)
-    # for jj in ZERO_V[0]:
-    #     object_indices[jj] = Dummy
-
     # Remove objects that are too small or short lived
-    rgiAreaObj = np.array(
+    area_objects = np.array(
         [
             [
                 np.sum(
@@ -2250,16 +2245,16 @@ def MCStracking(
     pr_objects = np.zeros(objects_id_pr.shape,dtype=int)
 
     ii = 1
-    for ob,_ in enumerate(rgiAreaObj):
+    for ob,_ in enumerate(area_objects):
         AreaTest = np.max(
             np.convolve(
-                np.array(rgiAreaObj[ob]) >= MinAreaPR * 1000**2,
+                np.array(area_objects[ob]) >= MinAreaPR * 1000**2,
                 np.ones(int(MinTimePR / DT)),
                 mode="valid",
             )
         )
         if (AreaTest == int(MinTimePR / DT)) & (
-            len(rgiAreaObj[ob]) >= int(MinTimePR / DT)
+            len(area_objects[ob]) >= int(MinTimePR / DT)
         ):
             pr_objects[objects_id_pr == (ob + 1)] = ii
             ii = ii + 1
@@ -2297,7 +2292,7 @@ def MCStracking(
     # sort the objects according to their size
     object_indices = ndimage.find_objects(rgiObjectsC)
 
-    rgiAreaObj = np.array(
+    area_objects = np.array(
         [
             [
                 np.sum(
@@ -2316,16 +2311,16 @@ def MCStracking(
     C_objects = np.copy(rgiObjectsC)
     C_objects[:] = 0
     ii = 1
-    for ob,_ in enumerate(rgiAreaObj):
+    for ob,_ in enumerate(area_objects):
         AreaTest = np.max(
             np.convolve(
-                np.array(rgiAreaObj[ob]) >= MinAreaC * 1000**2,
+                np.array(area_objects[ob]) >= MinAreaC * 1000**2,
                 np.ones(int(MinTimeC / DT)),
                 mode="valid",
             )
         )
         if (AreaTest == int(MinTimeC / DT)) & (
-            len(rgiAreaObj[ob]) >= int(MinTimeC / DT)
+            len(area_objects[ob]) >= int(MinTimeC / DT)
         ):
             # if rgiVolObjC[ob] >= MinAreaC:
             C_objects[rgiObjectsC == (ob + 1)] = ii
@@ -2353,8 +2348,7 @@ def MCStracking(
     print("        check if pr objects quallify as MCS")
     # check if precipitation object is from an MCS
     object_indices = ndimage.find_objects(pr_objects)
-    MCS_obj = np.copy(pr_objects)
-    MCS_obj[:] = 0
+    MCS_obj = np.zeros(pr_objects,dtype=int)
     for ii,_ in enumerate(object_indices):
         if object_indices[ii] == None:
             continue
