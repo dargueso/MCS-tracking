@@ -55,7 +55,7 @@ def ObjectCharacteristics(
         grObject = {}
         print("            Loop over " + str(PR_objectsFull.max()) + " objects")
         for ob in range(int(PR_objectsFull.max())):
-            #             print('        process object '+str(ob+1)+' out of '+str(PR_objectsFull.max()))
+
             TT = np.sum((PR_objectsFull == (ob + 1)), axis=(1, 2)) > 0
             if sum(TT) >= MinTime:
                 PR_object = np.copy(PR_objectsFull[TT, :, :])
@@ -229,7 +229,8 @@ def Feature_Calculation(
     ) ** (1 / 2)
 
     # 22222222222222222222222222222222222222222222222222
-    # Frontal Detection according to https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2017GL073662
+    # Frontal Detection according to
+    # https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2017GL073662
     UU = DATA_all[:, :, :, Variables.index("U")]
     VV = DATA_all[:, :, :, Variables.index("V")]
     dx = dLon
@@ -308,9 +309,11 @@ def ReadERA5(
     var,  # Variable name. See list below for defined variables
     PL,  # Pressure level of variable
     REGION,
-):  # Region to read. Format must be <[N,E,S,W]> in degrees from -180 to +180 longitude
+):  # Region to read. Format must be <[N,E,S,W]> in degrees from -180 to +180
+    # longitude
     # ----------
-    # This function reads hourly ERA5 data for one variable from NCAR's RDA archive in a region of interest.
+    # This function reads hourly ERA5 data for one variable
+    # from NCAR's RDA archive in a region of interest.
     # ----------
 
     DayStart = datetime.datetime(TIME[0].year, TIME[0].month, TIME[0].day, TIME[0].hour)
@@ -541,7 +544,7 @@ def ConnectLonOld(rgiObjectsAR):
     for tt in range(rgiObjectsAR.shape[0]):
         for y in range(rgiObjectsAR.shape[1]):
             if rgiObjectsAR[tt, y, 0] > 0 and rgiObjectsAR[tt, y, -1] > 0:
-                #                 rgiObjectsAR[rgiObjectsAR == rgiObjectsAR[tt, y, -1]] = rgiObjectsAR[tt, y, 0]
+
                 COPY_Obj_tt = np.copy(rgiObjectsAR[tt, :, :])
                 COPY_Obj_tt[COPY_Obj_tt == rgiObjectsAR[tt, y, -1]] = rgiObjectsAR[
                     tt, y, 0
@@ -775,7 +778,7 @@ def minimum_bounding_rectangle(points):
     angles = np.unique(angles)
 
     # find rotation matrices
-    # XXX both work
+
     rotations = np.vstack(
         [np.cos(angles), np.cos(angles - pi2), np.cos(angles + pi2), np.cos(angles)]
     ).T
@@ -955,7 +958,8 @@ def MultiObjectIdentification(
     ) ** (1 / 2)
 
     # 22222222222222222222222222222222222222222222222222
-    # Frontal Detection according to https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2017GL073662
+    # Frontal Detection according
+    # to https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2017GL073662
     UU = DATA_all[:, :, :, Variables.index("U")]
     VV = DATA_all[:, :, :, Variables.index("V")]
     dx = dLon
@@ -969,7 +973,8 @@ def MultiObjectIdentification(
 
     Fstar = PV * Tgrad
 
-    Tgrad_zero = 0.45  # *100/(np.mean([dLon,dLat], axis=0)/1000.)  # 0.45 K/(100 km)
+    Tgrad_zero = 0.45  # *100/(np.mean([dLon,dLat], axis=0)/1000.)
+                       # 0.45 K/(100 km)
     import metpy.calc as calc
     from metpy.units import units
 
@@ -1785,7 +1790,7 @@ def MultiObjectIdentification(
                 )
                 T850_core[tt] = T_cent
                 T_Cyclone = np.mean(T_ACT[tt, ObjACT[tt, :, :] != 0])
-                #                     T_Cyclone = np.mean(T_ACT[tt,MassC[0]-5:MassC[0]+6,MassC[1]-5:MassC[1]+6])
+                #T_Cyclone = np.mean(T_ACT[tt,MassC[0]-5:MassC[0]+6,MassC[1]-5:MassC[1]+6])
                 DeltaTCore[tt] = T_cent - T_Cyclone
             # smooth the data
             DeltaTCore = filters.gaussian_filter(DeltaTCore, 1)
@@ -2130,7 +2135,7 @@ def readMERGIR(TimeBT, Lon, Lat, dT, FocusRegion):
     return CLOUD_DATA
 
 
-#### ============================================================================================================
+#### =========================================================================
 # function to perform MCS tracking
 def MCStracking(
     DATA_all,
