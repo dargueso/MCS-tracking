@@ -162,7 +162,7 @@ def ObjectCharacteristics(PR_objectsFull, # feature object file
                 PR_object[PR_object != (ob+1)]=0
                 Objects=ndimage.find_objects(PR_object)
                 if len(Objects) > 1:
-                    Objects = [Objects[np.where(np.array(Objects) != None)[0][0]]]
+                    Objects = [Objects[np.where(np.array(Objects,dtype=object) != None)[0][0]]]
 
                 ObjAct = PR_object[Objects[0]]
                 ValAct = PR_orig[TT,:,:][Objects[0]]
@@ -1779,7 +1779,7 @@ def MCStracking(DATA_all,
     #     Objects[jj] = Dummy
 
     # Remove objects that are too small or short lived
-    rgiAreaObj = np.array([[np.sum(Area[Objects[ob][1:]][rgiObjectsPR[Objects[ob]][tt,:,:] == ob+1]) for tt in range(rgiObjectsPR[Objects[ob]].shape[0])] for ob in range(nr_objectsUD)])
+    rgiAreaObj = np.array([[np.sum(Area[Objects[ob][1:]][rgiObjectsPR[Objects[ob]][tt,:,:] == ob+1]) for tt in range(rgiObjectsPR[Objects[ob]].shape[0])] for ob in range(nr_objectsUD)],dtype=object)
     # create final object array
     PR_objects=np.copy(rgiObjectsPR); PR_objects[:]=0
     ii = 1
@@ -1818,7 +1818,7 @@ def MCStracking(DATA_all,
     # sort the objects according to their size
     Objects=ndimage.find_objects(rgiObjectsC)
 
-    rgiAreaObj = np.array([[np.sum(Area[Objects[ob][1:]][rgiObjectsC[Objects[ob]][tt,:,:] == ob+1]) for tt in range(rgiObjectsC[Objects[ob]].shape[0])] for ob in range(nr_objectsUD)])
+    rgiAreaObj = np.array([[np.sum(Area[Objects[ob][1:]][rgiObjectsC[Objects[ob]][tt,:,:] == ob+1]) for tt in range(rgiObjectsC[Objects[ob]].shape[0])] for ob in range(nr_objectsUD)],dtype=object)
 
     # rgiVolObjC=np.array([np.sum(rgiObjectsC[Objects[ob]] == ob+1) for ob in range(nr_objectsUD)])
 
