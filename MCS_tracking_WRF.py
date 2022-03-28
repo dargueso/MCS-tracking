@@ -31,32 +31,33 @@ import pandas as pd
 from joblib import Parallel, delayed
 
 import mcs_config as cfg
-from constants import const as const
+from constants import const
 from Tracking_Functions_optimized import MCStracking
 
 ###########################################################
 ############# USER MODIF ##################################
 
 wrf_runs = cfg.wrf_runs
-syear = cfg.syear
-eyear = cfg.eyear
-freq = "01H"
+wrun = wrf_runs[0]
+FREQ = "01H"
 
 DT = 1
 
 ############# END OF USER MODIF ###########################
 ###########################################################
 
-wrun = wrf_runs[0]
+
 
 ###########################################################
 ###########################################################
 
 
 def main():
+    """ Main program: loops over available files and parallelize storm tracking
+    """
 
     filesin = sorted(
-        glob(f"{cfg.path_in}/{wrun}/{cfg.patt_in}_{freq}_RAIN_201[3-4]-09.nc")
+        glob(f"{cfg.path_in}/{wrun}/{cfg.patt_in}_{FREQ}_RAIN_201[3-4]-09.nc")
     )
     Parallel(n_jobs=1)(delayed(storm_tracking)(fin_name) for fin_name in filesin)
 
@@ -66,7 +67,8 @@ def main():
 
 
 def storm_tracking(pr_finname):
-
+    """ Initialize the algorithm loading data from postprocessed WRF
+    """
     olr = (
         xr.open_dataset(f"{pr_finname.replace('RAIN','OLR')}")
         .isel(time=slice(216, 240))
@@ -94,7 +96,7 @@ def storm_tracking(pr_finname):
         int(rain.time.isel(time=-1).dt.day),
         int(rain.time.isel(time=-1).dt.hour),
     )
-    times = pd.date_range(sdate, end=edate, freq=freq)
+    times = pd.date_range(sdate, end=edate, freq=FREQ)
 
     ###########################################################
     ###########################################################
@@ -136,7 +138,6 @@ def storm_tracking(pr_finname):
 ###############################################################################
 
 if __name__ == "__main__":
-
     main()
 
 ###########################################################
