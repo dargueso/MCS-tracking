@@ -43,7 +43,7 @@ def main():
     """
 
     filesin = sorted(
-        glob(f"{cfg.path_in}/{wrun}/UIB_01H_RAIN_201[3-4]-09.nc")
+        glob(f"{cfg.path_in}/UIB_01H_RAIN_201[3-4]-09.nc")
     )
     Parallel(n_jobs=1)(delayed(storm_tracking)(fin_name) for fin_name in filesin)
 
@@ -96,7 +96,6 @@ def storm_tracking(pr_finname):
         lon,
         lat,
         cfg.Variables,
-        DT,
         NCfile          =   fileout,
     )
 

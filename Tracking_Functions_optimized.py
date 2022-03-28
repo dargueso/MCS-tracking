@@ -2157,13 +2157,14 @@ def MCStracking(
     Lon,
     Lat,
     Variables,
-    dT,  # time step of data in hours
     NCfile
 ):
     """ Function to track MCS from precipitation and brightness temperature
     """
 
     #Reading tracking parameters
+
+    DT = cfg.DT
 
     #Precipitation tracking setup
     SmoothSigmaP    = cfg.SmoothSigmaP   # [0] Gaussion std for precipitation smoothing
@@ -2204,7 +2205,7 @@ def MCStracking(
     PRsmooth = filters.gaussian_filter(
         DATA_all[:, :, :, Variables.index("PR")], sigma=(0, SmoothSigmaP, SmoothSigmaP)
     )
-    PRmask = PRsmooth >= Pthreshold * dT
+    PRmask = PRsmooth >= Pthreshold * DT
     rgiObjectsPR, nr_objectsUD = ndimage.label(PRmask, structure=rgiObj_Struct)
     print("            " + str(nr_objectsUD) + " precipitation object found")
 
@@ -2241,12 +2242,12 @@ def MCStracking(
         AreaTest = np.max(
             np.convolve(
                 np.array(rgiAreaObj[ob]) >= MinAreaPR * 1000**2,
-                np.ones(int(MinTimePR / dT)),
+                np.ones(int(MinTimePR / DT)),
                 mode="valid",
             )
         )
-        if (AreaTest == int(MinTimePR / dT)) & (
-            len(rgiAreaObj[ob]) >= int(MinTimePR / dT)
+        if (AreaTest == int(MinTimePR / DT)) & (
+            len(rgiAreaObj[ob]) >= int(MinTimePR / DT)
         ):
             PR_objects[rgiObjectsPR == (ob + 1)] = ii
             ii = ii + 1
@@ -2266,7 +2267,7 @@ def MCStracking(
         Lon,  # 2D Longitudes
         grid_spacing,
         grid_cell_area,
-        MinTime=int(MinTimePR / dT),
+        MinTime=int(MinTimePR / DT),
     )  # minimum livetime in hours
 
     # --------------------------------------------------------
@@ -2309,19 +2310,19 @@ def MCStracking(
         AreaTest = np.max(
             np.convolve(
                 np.array(rgiAreaObj[ob]) >= MinAreaC * 1000**2,
-                np.ones(int(MinTimeC / dT)),
+                np.ones(int(MinTimeC / DT)),
                 mode="valid",
             )
         )
-        if (AreaTest == int(MinTimeC / dT)) & (
-            len(rgiAreaObj[ob]) >= int(MinTimeC / dT)
+        if (AreaTest == int(MinTimeC / DT)) & (
+            len(rgiAreaObj[ob]) >= int(MinTimeC / DT)
         ):
             # if rgiVolObjC[ob] >= MinAreaC:
             C_objects[rgiObjectsC == (ob + 1)] = ii
             ii = ii + 1
 
     print("        break up long living cloud shield objects that heve many elements")
-    C_objects = BreakupObjects(C_objects, int(MinTimeC / dT), dT)
+    C_objects = BreakupObjects(C_objects, int(MinTimeC / DT), DT)
     # connect objects over date line
     if connectLon == 1:
         print("        connect cloud objects over date line")
@@ -2338,7 +2339,7 @@ def MCStracking(
         Lon,  # 2D Longitudes
         grid_spacing,
         grid_cell_area,
-        MinTime=int(MinTimeC / dT),
+        MinTime=int(MinTimeC / DT),
     )  # minimum livetime in hours
 
     print("        check if pr objects quallify as MCS")
@@ -2394,13 +2395,13 @@ def MCStracking(
         # minimum lifetime peak precipitation
         PR_MAXLT = np.copy(PR_MAX)
         PR_MAXLT[:] = np.max(PR_MAXLT)
-        PR_MAXLT[:] = PR_MAXLT >= MCS_MinPeakPR * dT
+        PR_MAXLT[:] = PR_MAXLT >= MCS_MinPeakPR * DT
 
         MCS_TEST = (
             (Cloud_Size / 1000**2 >= CL_Area)
             & (Cloud_MinT <= CL_MaxT)
             & (PR_Size / 1000**2 >= MCS_Minsize)
-            & (PR_MAX >= MCS_minPR * dT)
+            & (PR_MAX >= MCS_minPR * DT)
             & (PR_MAXLT == 1)
         )
 
@@ -2409,7 +2410,7 @@ def MCStracking(
         ObjACT[ObjACT == 1] = ii + 1
 
         # PR area defines MCS area and precipitation
-        window_length = int(MCS_minTime / dT)
+        window_length = int(MCS_minTime / DT)
         cumulative_sum = np.cumsum(np.insert(MCS_TEST, 0, 0))
         moving_averages = (
             cumulative_sum[window_length:] - cumulative_sum[:-window_length]
@@ -2436,7 +2437,7 @@ def MCStracking(
         Lon,  # 2D Longitudes
         grid_spacing,
         grid_cell_area,
-        MinTime=int(MCS_minTime / dT),
+        MinTime=int(MCS_minTime / DT),
     )  # minimum livetime in hours
 
     print(" ")

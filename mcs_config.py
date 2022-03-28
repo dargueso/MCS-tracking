@@ -2,7 +2,7 @@
 path_in = "/vg6/dargueso-NO-BKUP/postprocessed/unified/EPICC/EPICC_2km_ERA5_HVC_GWD/"
 
 ## MCS config
-
+DT = 1 # time step of data in hours
 Variables = ["PR", "Tb"]
 
 # MINIMUM REQUIREMENTS FOR FEATURE DETECTION
