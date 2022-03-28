@@ -25,13 +25,14 @@ import numpy as np
 import xarray as xr
 from glob import glob
 import time
-import pickle
+import datetime
+import pandas as pd
 
-from joblib import Parallel, delayed
+#from joblib import Parallel, delayed
 
 import epicc_config as cfg
 from constants import const as const
-from Tracking_Functions_optimized import MCStrack
+from Tracking_Functions_optimized import MCStracking
 
 ###########################################################
 ############# USER MODIF ##################################
@@ -40,6 +41,11 @@ wrf_runs = cfg.wrf_runs
 syear = cfg.syear
 eyear = cfg.eyear
 
+year = 2013
+month = 9
+freq = '01H'
+
+Variables = ['PR','Tb']
 # Tracking parameters
 dT = 1                    # temporal resolution of data for tracking in hours
 
@@ -98,6 +104,8 @@ Time = pd.date_range(StartDay, end=StopDay, freq='1H')
 ###########################################################
 ###########################################################
 
+start_time = time.time()
+
 NCfile = f'EPICC-MCS-tracking_{year}{month:02d}_.nc'
 grMCSs, MCS_obj = MCStracking(DATA_all,
                               Time,
@@ -120,3 +128,6 @@ grMCSs, MCS_obj = MCStracking(DATA_all,
                               CL_Area = CL_Area,
                               MCS_minTime = MCS_minTime,
                               NCfile = NCfile)
+
+end_time = time.time()
+print(f'======> DONE in {(end_time-start_time):.2f} seconds \n')
