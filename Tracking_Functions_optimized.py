@@ -8,129 +8,30 @@
    clouds, and moisture streams
 
 """
-
-import numpy as np
-from scipy import stats
-import matplotlib.pyplot as plt
-from netCDF4 import Dataset
 import glob
 import os
 from pdb import set_trace as stop
-from scipy.ndimage.filters import gaussian_filter
-from scipy.ndimage import median_filter
-from scipy.ndimage import label
-from matplotlib import cm
-from scipy import ndimage
-import random
-import scipy
 import pickle
-import datetime
-import pandas as pd
-import subprocess
-import matplotlib.path as mplPath
-import sys
-from calendar import monthrange
 from itertools import groupby
-from tqdm import tqdm
-import time
+from math import radians, cos, sin, asin, sqrt
+import datetime
 
-#### speed up interpolation
-import scipy.interpolate as spint
-import scipy.spatial.qhull as qhull
+
 import numpy as np
+import matplotlib.path as mplPath
+import netCDF4 as nc
 import h5py
-import xarray as xr
-import netCDF4
+import pandas as pd
+
+import scipy.ndimage.filters as filters
+import scipy.ndimage.morphology as morphology
+from scipy.spatial import ConvexHull,qhull
+from scipy import ndimage
 
 
-# ==============================================================
-# ==============================================================
 
-# def ObjectCharacteristics(PR_objectsFull, # feature object file
-#                          PR_orig,         # original file used for feature detection
-#                          SaveFile,        # output file name and locaiton
-#                          TIME,            # timesteps of the data
-#                          Lat,             # 2D latidudes
-#                          Lon,             # 2D Longitudes
-#                          Gridspacing,     # average grid spacing
-#                          MinTime=1,       # minimum lifetime of an object
-#                          Boundary = 1):   # 1 --> remove object when it hits the boundary of the domain
+from tqdm import tqdm
 
-#     import scipy
-#     import pickle
-
-#     nr_objectsUD=PR_objectsFull.max()
-#     rgiObjectsUDFull = PR_objectsFull
-#     if nr_objectsUD >= 1:
-#         grObject={}
-#         print('            Loop over '+str(PR_objectsFull.max())+' objects')
-#         for ob in range(int(PR_objectsFull.max())):
-# #             print('        process object '+str(ob+1)+' out of '+str(PR_objectsFull.max()))
-#             TT=(np.sum((PR_objectsFull == (ob+1)), axis=(1,2)) > 0)
-#             if sum(TT) >= MinTime:
-#                 PR_objects=PR_objectsFull[TT,:,:]
-#                 rgrObAct=np.array(np.copy(PR_orig[TT,:,:])).astype('float')
-#                 rgrObAct[PR_objects != (ob+1)]=0
-#                 rgiObjectsUD=rgiObjectsUDFull[TT,:,:]
-#                 TimeAct=TIME[TT]
-
-#                 # Does the object hit the boundary?
-#                 rgiObjActSel=np.array(PR_objects == (ob+1)).astype('float')
-#                 if Boundary == 1:
-#                     rgiBoundary=(np.sum(rgiObjActSel[:,0,:], axis=1)+np.sum(rgiObjActSel[:,-1,:], axis=1)+np.sum(rgiObjActSel[:,:,0], axis=1)+np.sum(rgiObjActSel[:,:,-1], axis=1) != 0)
-#                     rgrObAct[rgiBoundary,:,:]=np.nan
-#                     rgiObjActSel[rgiBoundary,:,:]=np.nan
-#                 rgrMassCent=np.array([scipy.ndimage.measurements.center_of_mass(rgrObAct[tt,:,:]) for tt in range(PR_objects.shape[0])])
-#                 rgrObjSpeed=np.array([((rgrMassCent[tt,0]-rgrMassCent[tt+1,0])**2 + (rgrMassCent[tt,1]-rgrMassCent[tt+1,1])**2)**0.5 for tt in range(PR_objects.shape[0]-1)])*(Gridspacing/1000.)
-
-#                 # plt.plot(rgrObjSpeed); plt.plot(SpeedRMSE); plt.plot(SpeedCorr); plt.plot(SpeedAverage, c='k', lw=3); plt.show()
-#                 SpeedAverage=np.copy(rgrObjSpeed) #np.nanmean([rgrObjSpeed,SpeedRMSE,SpeedCorr], axis=0)
-#                 rgrPR_Vol=(np.array([np.sum(rgrObAct[tt,:,:]) for tt in range(PR_objects.shape[0])])/(12.*60.*5.))*Gridspacing**2
-#                 rgrPR_Max=np.array([np.max(rgrObAct[tt,:,:]) for tt in range(PR_objects.shape[0])])
-# #                 rgrPR_Percentiles = np.zeros((rgiObjectsUD.shape[0],101)); rgrPR_Percentiles[:] = np.nan
-#                 rgrPR_Mean = np.zeros((rgiObjectsUD.shape[0])); rgrPR_Mean[:] = np.nan
-#                 for tt in range(rgiObjectsUD.shape[0]):
-#                     if np.sum(rgiObjectsUD[tt,:,:] == (ob+1)) >0:
-# #                         PR_perc=np.percentile(rgrObAct[tt,:,:][rgiObjectsUD[tt,:,:] == (ob+1)], range(101))
-#                         PR_mean=np.mean(rgrObAct[tt,:,:][rgiObjectsUD[tt,:,:] == (ob+1)])
-#                     else:
-#                         PR_mean=np.nan
-# #                         PR_perc=np.array([np.nan]*101)
-# #                     rgrPR_Percentiles[tt,:] = PR_perc
-#                     rgrPR_Mean[tt] = PR_mean
-
-#                 rgrSize=np.array([np.sum(rgiObjActSel[tt,:,:] == 1) for tt in range(rgiObjectsUD.shape[0])])*(Gridspacing/1000.)**2
-#                 rgrSize[(rgrSize == 0)]=np.nan
-
-#                 # Track lat/lon
-#                 TrackAll = np.zeros((len(rgrMassCent),2)); TrackAll[:] = np.nan
-#                 try:
-#                     FIN = ~np.isnan(rgrMassCent[:,0])
-#                     for ii in range(len(rgrMassCent)):
-#                         if ~np.isnan(rgrMassCent[ii,0]) == True:
-#                             TrackAll[ii,1] = Lat[int(np.round(rgrMassCent[ii][0],0)), int(np.round(rgrMassCent[ii][1],0))]
-#                             TrackAll[ii,0] = Lon[int(np.round(rgrMassCent[ii][0],0)), int(np.round(rgrMassCent[ii][1],0))]
-#                 except:
-#                     stop()
-
-#                 grAct={'rgrMassCent':rgrMassCent,
-#                        'rgrObjSpeed':SpeedAverage,
-#                        'rgrPR_Vol':rgrPR_Vol,
-# #                        'rgrPR_Percentiles':rgrPR_Percentiles,
-#                        'rgrPR_Max':rgrPR_Max,
-#                        'rgrPR_Mean':rgrPR_Mean,
-#                        'rgrSize':rgrSize,
-# #                        'rgrAccumulation':rgrAccumulation,
-#                        'TimeAct':TimeAct,
-#                        'rgrMassCentLatLon':TrackAll}
-#                 try:
-#                     grObject[str(ob+1)]=grAct
-#                 except:
-#                     stop()
-#                     continue
-#         if SaveFile != None:
-#             pickle.dump(grObject, open(SaveFile, "wb" ) )
-#         return grObject
 
 
 def ObjectCharacteristics(
@@ -147,9 +48,6 @@ def ObjectCharacteristics(
 ):  # 1 --> remove object when it hits the boundary of the domain
 
     # ========
-
-    import scipy
-    import pickle
 
     nr_objectsUD = PR_objectsFull.max()
     rgiObjectsUDFull = PR_objectsFull
@@ -189,7 +87,7 @@ def ObjectCharacteristics(
                 # Track lat/lon
                 rgrMassCent = np.array(
                     [
-                        scipy.ndimage.measurements.center_of_mass(ObjAct[tt, :, :])
+                        ndimage.measurements.center_of_mass(ObjAct[tt, :, :])
                         for tt in range(ObjAct.shape[0])
                     ]
                 )
@@ -246,13 +144,6 @@ def ObjectCharacteristics(
 # ==============================================================
 # ==============================================================
 
-#### speed up interpolation
-import scipy.interpolate as spint
-import scipy.spatial.qhull as qhull
-import numpy as np
-import h5py
-import xarray as xr
-
 
 def interp_weights(xy, uv, d=2):
     tri = qhull.Delaunay(xy)
@@ -273,10 +164,6 @@ def interpolate(values, vtx, wts):
 
 
 # ==============================================================
-# ==============================================================
-import numpy as np
-import scipy.ndimage.filters as filters
-import scipy.ndimage.morphology as morphology
 
 
 def detect_local_minima(arr):
@@ -325,7 +212,6 @@ def Feature_Calculation(
     dT,  # time step in hours
     Gridspacing,
 ):  # grid spacing in m
-    from scipy import ndimage
 
     # 11111111111111111111111111111111111111111111111111
     # calculate vapor transport on pressure level
@@ -399,8 +285,6 @@ def Feature_Calculation(
 
 # ==============================================================
 # ==============================================================
-from math import radians, cos, sin, asin, sqrt
-
 
 def haversine(lon1, lat1, lon2, lat2):
     """
@@ -522,7 +406,7 @@ def ReadERA5(
 
     print(ERAvarfile)
     # read in the coordinates
-    ncid = Dataset(
+    ncid = nc.Dataset(
         "/gpfs/fs1/collections/rda/data/ds633.0/e5.oper.invariant/197901/e5.oper.invariant.128_129_z.ll025sc.1979010100_1979010100.nc",
         mode="r",
     )
@@ -578,7 +462,7 @@ def ReadERA5(
 
         for fi in range(len(FILES)):  # [7:9]:
             print(FILES[fi])
-            ncid = Dataset(FILES[fi], mode="r")
+            ncid = nc.Dataset(FILES[fi], mode="r")
             time_var = ncid.variables["time"]
             dtime = netCDF4.num2date(time_var[:], time_var.units)
             TimeNC = pd.to_datetime(
@@ -863,8 +747,7 @@ def is_land(x, y):
 
 
 # https://stackoverflow.com/questions/13542855/algorithm-to-find-the-minimum-area-rectangle-for-given-points-in-order-to-comput/33619018#33619018
-import numpy as np
-from scipy.spatial import ConvexHull
+
 
 
 def minimum_bounding_rectangle(points):
@@ -875,7 +758,6 @@ def minimum_bounding_rectangle(points):
     :param points: an nx2 matrix of coordinates
     :rval: an nx2 matrix of coordinates
     """
-    from scipy.ndimage.interpolation import rotate
 
     pi2 = np.pi / 2.0
 
@@ -1177,11 +1059,11 @@ def MultiObjectIdentification(
 
     V = SLP.copy()
     V[np.isnan(U)] = 0
-    VV = gaussian_filter(V, sigma=[sigma, sigma, sigma], truncate=truncate)
+    VV = filters.gaussian_filter(V, sigma=[sigma, sigma, sigma], truncate=truncate)
 
     W = 0 * U.copy() + 1
     W[np.isnan(U)] = 0
-    WW = gaussian_filter(W, sigma=[sigma, sigma, sigma], truncate=truncate)
+    WW = filters.gaussian_filter(W, sigma=[sigma, sigma, sigma], truncate=truncate)
 
     Z = VV / WW
 
@@ -1365,7 +1247,7 @@ def MultiObjectIdentification(
                 axis=1,
             )
             try:
-                Hull = scipy.spatial.ConvexHull(np.array(PointsObj))
+                Hull = ConvexHull(np.array(PointsObj))
             except:
                 continue
             XX = []
@@ -1585,7 +1467,7 @@ def MultiObjectIdentification(
     # ------------------------
     print("    track  precipitation")
     start = time.perf_counter()
-    PRsmooth = gaussian_filter(
+    PRsmooth = filters.gaussian_filter(
         DATA_all[:, :, :, Variables.index("PR")], sigma=(0, SmoothSigmaP, SmoothSigmaP)
     )
     PRmask = PRsmooth >= Pthreshold * dT
@@ -1669,7 +1551,7 @@ def MultiObjectIdentification(
     # ------------------------
     print("    track  clouds")
     start = time.perf_counter()
-    Csmooth = gaussian_filter(
+    Csmooth = filters.gaussian_filter(
         DATA_all[:, :, :, Variables.index("BT")], sigma=(0, SmoothSigmaC, SmoothSigmaC)
     )
     Cmask = Csmooth <= Cthreshold
@@ -1906,7 +1788,7 @@ def MultiObjectIdentification(
                 #                     T_Cyclone = np.mean(T_ACT[tt,MassC[0]-5:MassC[0]+6,MassC[1]-5:MassC[1]+6])
                 DeltaTCore[tt] = T_cent - T_Cyclone
             # smooth the data
-            DeltaTCore = gaussian_filter(DeltaTCore, 1)
+            DeltaTCore = filters.gaussian_filter(DeltaTCore, 1)
             WarmCore = DeltaTCore > TC_deltaT_core
 
             if np.sum(WarmCore) < 8:
@@ -1987,10 +1869,10 @@ def MultiObjectIdentification(
     # Write NetCDF
     iTime = np.array((Time - Time[0]).total_seconds()).astype("int")
 
-    dataset = Dataset(NCfile, "w", format="NETCDF4_CLASSIC")
-    yc = dataset.createDimension("yc", Lat.shape[0])
-    xc = dataset.createDimension("xc", Lat.shape[1])
-    time = dataset.createDimension("time", None)
+    dataset = nc.Dataset(NCfile, "w", format="NETCDF4_CLASSIC")
+    dataset.createDimension("yc", Lat.shape[0])
+    dataset.createDimension("xc", Lat.shape[1])
+    dataset.createDimension("time", None)
 
     times = dataset.createVariable("time", np.float64, ("time",))
     lat = dataset.createVariable(
@@ -2174,7 +2056,7 @@ def readIMERG(TimeHH, Lon, Lat, iNorth, iEast, iSouth, iWest, dT):
 def readMERGIR(TimeBT, Lon, Lat, dT, FocusRegion):
     # Read Brightness temperature from MERGIR
     # -----------
-    ncfile = Dataset("CONUS_merg_2016070100_4km-pixel.nc4")
+    ncfile = nc.Dataset("CONUS_merg_2016070100_4km-pixel.nc4")
     LonG = np.squeeze(ncfile.variables["lon"])
     LatG = np.squeeze(ncfile.variables["lat"])
     ncfile.close()
@@ -2228,7 +2110,7 @@ def readMERGIR(TimeBT, Lon, Lat, dT, FocusRegion):
 
         # Read Gridsat
         FILE = "CONUS_merg_" + YYYY + MM + DD + HH + "_4km-pixel.nc4"
-        ncfile = Dataset(FILE)
+        ncfile = nc.Dataset(FILE)
         irwin_cdr = np.squeeze(ncfile.variables["Tb"][:, iSouth:iNorth, iWest:iEast])
         ncfile.close()
         irwin_cdr[irwin_cdr < 0] = np.nan
@@ -2304,7 +2186,7 @@ def MCStracking(
     # ------------------------
     print("        track  precipitation")
 
-    PRsmooth = gaussian_filter(
+    PRsmooth = filters.gaussian_filter(
         DATA_all[:, :, :, Variables.index("PR")], sigma=(0, SmoothSigmaP, SmoothSigmaP)
     )
     PRmask = PRsmooth >= Pthreshold * dT
@@ -2317,10 +2199,7 @@ def MCStracking(
 
     # remove None objects
     Objects = ndimage.find_objects(rgiObjectsPR)
-    rgiVolObj = np.array(
-        [np.sum(rgiObjectsPR[Objects[ob]] == ob + 1) for ob in range(nr_objectsUD)]
-    )
-    ZERO_V = np.where(rgiVolObj == 0)
+
     # Dummy = [slice(0, 1, None), slice(0, 1, None), slice(0, 1, None)]
     # Objects = np.array(Objects)
     # for jj in ZERO_V[0]:
@@ -2377,7 +2256,7 @@ def MCStracking(
 
     # --------------------------------------------------------
     print("        track  clouds")
-    Csmooth = gaussian_filter(
+    Csmooth = filters.gaussian_filter(
         DATA_all[:, :, :, Variables.index("Tb")], sigma=(0, SmoothSigmaC, SmoothSigmaC)
     )
     Cmask = Csmooth <= Cthreshold
@@ -2459,8 +2338,6 @@ def MCStracking(
         if ObjACT.shape[0] < 2:
             continue
         Cloud_ACT = np.copy(C_objects[Objects[ii]])
-        LonObj = Lon[Objects[ii][1], Objects[ii][2]]
-        LatObj = Lat[Objects[ii][1], Objects[ii][2]]
         Area_ACT = Area[Objects[ii][1], Objects[ii][2]]
         PR_ACT = DATA_all[:, :, :, Variables.index("PR")][Objects[ii]]
 
@@ -2481,7 +2358,6 @@ def MCStracking(
             # no deep cloud shield is over the precipitation
             continue
         CL_OB_TMP = C_objects[Objects[ii][0]]
-        CL_TMP = DATA_all[:, :, :, Variables.index("Tb")][Objects[ii][0]]
         CLOUD_obj_act = np.in1d(CL_OB_TMP.flatten(), rgiCL_obj).reshape(CL_OB_TMP.shape)
         Cloud_Size = np.array(
             [
@@ -2554,10 +2430,10 @@ def MCStracking(
     # Write NetCDF
     iTime = np.array((Time - Time[0]).total_seconds()).astype("int")
 
-    dataset = Dataset(NCfile, "w", format="NETCDF4_CLASSIC")
-    yc = dataset.createDimension("yc", Lat.shape[0])
-    xc = dataset.createDimension("xc", Lat.shape[1])
-    time = dataset.createDimension("time", None)
+    dataset = nc.Dataset(NCfile, "w", format="NETCDF4_CLASSIC")
+    dataset.createDimension("yc", Lat.shape[0])
+    dataset.createDimension("xc", Lat.shape[1])
+    dataset.createDimension("time", None)
 
     times = dataset.createVariable("time", np.float64, ("time",))
     lat = dataset.createVariable(
