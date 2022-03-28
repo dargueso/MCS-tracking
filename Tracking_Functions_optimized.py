@@ -29,6 +29,10 @@ from scipy import ndimage
 
 from metpy import calc
 
+from cartopy.io import shapereader
+import shapely.geometry as sgeom
+from shapely.ops import unary_union
+from shapely.prepared import prep
 
 
 from tqdm import tqdm
@@ -360,11 +364,11 @@ def ReadERA5(
     # from NCAR's RDA archive in a region of interest.
     # ----------
 
-    DayStart = datetime.datetime(TIME[0].year, TIME[0].month, TIME[0].day, TIME[0].hour)
-    DayStop = datetime.datetime(
+    start_day = datetime.datetime(TIME[0].year, TIME[0].month, TIME[0].day, TIME[0].hour)
+    end_day = datetime.datetime(
         TIME[-1].year, TIME[-1].month, TIME[-1].day, TIME[-1].hour
     )
-    TimeDD = pd.date_range(DayStart, end=DayStop, freq="d")
+    TimeDD = pd.date_range(start_day, end=end_day, freq="d")
     Plevels = np.array(
         [
             1,
@@ -757,16 +761,13 @@ def timer(start, end):
 
 
 
-import cartopy.io.shapereader as shpreader
-import shapely.geometry as sgeom
-from shapely.ops import unary_union
-from shapely.prepared import prep
 
-land_shp_fname = shpreader.natural_earth(
+
+land_shp_fname = shapereader.natural_earth(
     resolution="50m", category="physical", name="land"
 )
 
-land_geom = unary_union(list(shpreader.Reader(land_shp_fname).geometries()))
+land_geom = unary_union(list(shapereader.Reader(land_shp_fname).geometries()))
 land = prep(land_geom)
 
 
@@ -850,7 +851,7 @@ def MultiObjectIdentification(
     # this order must be followed
     Lon,  # 2D longitude grid centers
     Lat,  # 2D latitude grid spacing
-    Time,  # datetime vector of data
+    times,  # datetime vector of data
     dT,  # integer - temporal frequency of data [hour]
     Mask,  # mask with dimensions [lat,lon] defining analysis region
     DataName="",  # name of the common grid
@@ -905,7 +906,7 @@ def MultiObjectIdentification(
 
     obj_structure_3D = np.ones((3,3,3))
 
-    StartDay = Time[0]
+    start_day = times[0]
     SetupString = (
         "dt-"
         + str(dT)
@@ -936,8 +937,8 @@ def MultiObjectIdentification(
     )
     NCfile = (
         OutputFolder
-        + str(StartDay.year)
-        + str(StartDay.month).zfill(2)
+        + str(start_day.year)
+        + str(start_day.month).zfill(2)
         + "_"
         + DataName
         + "_ObjectMasks_"
@@ -1161,12 +1162,12 @@ def MultiObjectIdentification(
         VapTrans,  # original file used for feature detection
         OutputFolder
         + "MS850_"
-        + str(StartDay.year)
-        + str(StartDay.month).zfill(2)
+        + str(start_day.year)
+        + str(start_day.month).zfill(2)
         + "_"
         + DataName
         + SetupString,  # output file name and locaiton
-        Time,  # timesteps of the data
+        times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
         grid_spacing,
@@ -1218,12 +1219,12 @@ def MultiObjectIdentification(
         VapTrans,  # original file used for feature detection
         OutputFolder
         + "IVT_"
-        + str(StartDay.year)
-        + str(StartDay.month).zfill(2)
+        + str(start_day.year)
+        + str(start_day.month).zfill(2)
         + "_"
         + DataName
         + SetupString,
-        Time,  # timesteps of the data
+        times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
         grid_spacing,
@@ -1359,12 +1360,12 @@ def MultiObjectIdentification(
         SLP,  # original file used for feature detection
         OutputFolder
         + "CY_"
-        + str(StartDay.year)
-        + str(StartDay.month).zfill(2)
+        + str(start_day.year)
+        + str(start_day.month).zfill(2)
         + "_"
         + DataName
         + SetupString,
-        Time,  # timesteps of the data
+        times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
         grid_spacing,
@@ -1427,12 +1428,12 @@ def MultiObjectIdentification(
         SLP,  # original file used for feature detection
         OutputFolder
         + "ACY_"
-        + str(StartDay.year)
-        + str(StartDay.month).zfill(2)
+        + str(start_day.year)
+        + str(start_day.month).zfill(2)
         + "_"
         + DataName
         + SetupString,
-        Time,  # timesteps of the data
+        times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
         grid_spacing,
@@ -1550,12 +1551,12 @@ def MultiObjectIdentification(
         ],  # original file used for feature detection
         OutputFolder
         + "PR_"
-        + str(StartDay.year)
-        + str(StartDay.month).zfill(2)
+        + str(start_day.year)
+        + str(start_day.month).zfill(2)
         + "_"
         + DataName
         + SetupString,
-        Time,  # timesteps of the data
+        times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
         grid_spacing,
@@ -1632,12 +1633,12 @@ def MultiObjectIdentification(
         ],  # original file used for feature detection
         OutputFolder
         + "Clouds_"
-        + str(StartDay.year)
-        + str(StartDay.month).zfill(2)
+        + str(start_day.year)
+        + str(start_day.month).zfill(2)
         + "_"
         + DataName
         + SetupString,
-        Time,  # timesteps of the data
+        times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
         grid_spacing,
@@ -1884,7 +1885,7 @@ def MultiObjectIdentification(
     start = time.perf_counter()
     # ============================
     # Write NetCDF
-    iTime = np.array((Time - Time[0]).total_seconds()).astype("int")
+    itimes = np.array((times - times[0]).total_seconds()).astype("int")
 
     dataset = nc.Dataset(NCfile, "w", format="NETCDF4_CLASSIC")
     dataset.createDimension("yc", Lat.shape[0])
@@ -1930,15 +1931,15 @@ def MultiObjectIdentification(
     times.calendar = "standard"
     times.units = (
         "seconds since "
-        + str(Time[0].year)
+        + str(times[0].year)
         + "-"
-        + str(Time[0].month).zfill(2)
+        + str(times[0].month).zfill(2)
         + "-"
-        + str(Time[0].day).zfill(2)
+        + str(times[0].day).zfill(2)
         + " "
-        + str(Time[0].hour).zfill(2)
+        + str(times[0].hour).zfill(2)
         + ":"
-        + str(Time[0].minute).zfill(2)
+        + str(times[0].minute).zfill(2)
         + ":00"
     )
     times.standard_name = "time"
@@ -1991,7 +1992,7 @@ def MultiObjectIdentification(
     ARs[:] = AR_obj
     Cloud_real[:] = DATA_all[:, :, :, Variables.index("BT")]
     Cloud_obj[:] = C_objects
-    times[:] = iTime
+    times[:] = itimes
 
     dataset.close()
     print("Saved: " + NCfile)
@@ -2004,8 +2005,8 @@ def MultiObjectIdentification(
     # ============================
     a_file = open(
         OutputFolder
-        + str(Time[0].year)
-        + str(Time[0].month).zfill(2)
+        + str(times[0].year)
+        + str(times[0].month).zfill(2)
         + "_TCs_tracks.pkl",
         "wb",
     )
@@ -2147,13 +2148,13 @@ def readMERGIR(TimeBT, Lon, Lat, dT, FocusRegion):
     return CLOUD_DATA
 
 
-############################################################
+start_day############################################################
 ###########################################################
 #### ======================================================
 # function to perform MCS tracking
 def MCStracking(
     DATA_all,
-    Time,
+    times,
     Lon,
     Lat,
     Variables,
@@ -2186,12 +2187,13 @@ def MCStracking(
 
     #Calculating grid distances and areas
 
-    dx,dy,grid_cell_area,grid_spacing = calc_grid_distance_area(Lat,Lon)
+    _,_,grid_cell_area,grid_spacing = calc_grid_distance_area(Lat,Lon)
     grid_cell_area[grid_cell_area < 0] = 0
 
     obj_structure_3D = np.ones((3,3,3))
 
-    StartDay = Time[0]
+    start_day = times[0]
+
 
     # connect over date line?
     if (Lon[0, 0] < -176) & (Lon[0, -1] > 176):
@@ -2261,8 +2263,8 @@ def MCStracking(
         DATA_all[
             :, :, :, Variables.index("PR")
         ],  # original file used for feature detection
-        "PR_" + str(StartDay.year) + str(StartDay.month).zfill(2),
-        Time,  # timesteps of the data
+        "PR_" + str(start_day.year) + str(start_day.month).zfill(2),
+        times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
         grid_spacing,
@@ -2333,8 +2335,8 @@ def MCStracking(
         DATA_all[
             :, :, :, Variables.index("Tb")
         ],  # original file used for feature detection
-        "Clouds_" + str(StartDay.year) + str(StartDay.month).zfill(2),
-        Time,  # timesteps of the data
+        "Clouds_" + str(start_day.year) + str(start_day.month).zfill(2),
+        times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
         grid_spacing,
@@ -2431,8 +2433,8 @@ def MCStracking(
         DATA_all[
             :, :, :, Variables.index("PR")
         ],  # original file used for feature detection
-        "MCS_" + str(StartDay.year) + str(StartDay.month).zfill(2),
-        Time,  # timesteps of the data
+        "MCS_" + str(start_day.year) + str(start_day.month).zfill(2),
+        times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
         grid_spacing,
@@ -2444,7 +2446,7 @@ def MCStracking(
     print("Save the object masks into a joint netCDF")
     # ============================
     # Write NetCDF
-    iTime = np.array((Time - Time[0]).total_seconds()).astype("int")
+    itimes = np.array((times - times[0]).total_seconds()).astype("int")
 
     dataset = nc.Dataset(NCfile, "w", format="NETCDF4_CLASSIC")
     dataset.createDimension("yc", Lat.shape[0])
@@ -2477,15 +2479,15 @@ def MCStracking(
     times.calendar = "standard"
     times.units = (
         "seconds since "
-        + str(Time[0].year)
+        + str(times[0].year)
         + "-"
-        + str(Time[0].month).zfill(2)
+        + str(times[0].month).zfill(2)
         + "-"
-        + str(Time[0].day).zfill(2)
+        + str(times[0].day).zfill(2)
         + " "
-        + str(Time[0].hour).zfill(2)
+        + str(times[0].hour).zfill(2)
         + ":"
-        + str(Time[0].minute).zfill(2)
+        + str(times[0].minute).zfill(2)
         + ":00"
     )
     times.standard_name = "time"
@@ -2512,7 +2514,7 @@ def MCStracking(
     MCSs[:] = MCS_obj
     Cloud_real[:] = DATA_all[:, :, :, Variables.index("Tb")]
     Cloud_obj[:] = C_objects
-    times[:] = iTime
+    times[:] = itimes
 
     dataset.close()
     print("Saved: " + NCfile)
