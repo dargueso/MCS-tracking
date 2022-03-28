@@ -2154,7 +2154,7 @@ def readMERGIR(TimeBT, Lon, Lat, dT, FocusRegion):
 # function to perform MCS tracking
 def MCStracking(
     pr_data,
-    bt_data
+    bt_data,
     times,
     Lon,
     Lat,
@@ -2260,7 +2260,7 @@ def MCStracking(
 
     grPRs = ObjectCharacteristics(
         PR_objects,  # feature object file
-        pr_data  # original file used for feature detection
+        pr_data,  # original file used for feature detection
         "PR_" + str(start_day.year) + str(start_day.month).zfill(2),
         times,  # timesteps of the data
         Lat,  # 2D latidudes
@@ -2330,7 +2330,7 @@ def MCStracking(
 
     grCs = ObjectCharacteristics(
         C_objects,  # feature object file
-        bt_data  # original file used for feature detection
+        bt_data,  # original file used for feature detection
         "Clouds_" + str(start_day.year) + str(start_day.month).zfill(2),
         times,  # timesteps of the data
         Lat,  # 2D latidudes

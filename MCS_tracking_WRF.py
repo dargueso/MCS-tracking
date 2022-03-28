@@ -66,20 +66,20 @@ def storm_tracking(pr_finname):
     pr_data = pr.RAIN.values
     bt_data = (olr.OLR.values / const.SB_sigma) ** (0.25)
 
-    lat = rain.lat.values
-    lon = rain.lon.values
+    lat = pr.lat.values
+    lon = pr.lon.values
 
     sdate = datetime.datetime(
-        int(rain.time.isel(time=0).dt.year),
-        int(rain.time.isel(time=0).dt.month),
-        int(rain.time.isel(time=0).dt.day),
-        int(rain.time.isel(time=0).dt.hour),
+        int(pr.time.isel(time=0).dt.year),
+        int(pr.time.isel(time=0).dt.month),
+        int(pr.time.isel(time=0).dt.day),
+        int(pr.time.isel(time=0).dt.hour),
     )
     edate = datetime.datetime(
-        int(rain.time.isel(time=-1).dt.year),
-        int(rain.time.isel(time=-1).dt.month),
-        int(rain.time.isel(time=-1).dt.day),
-        int(rain.time.isel(time=-1).dt.hour),
+        int(pr.time.isel(time=-1).dt.year),
+        int(pr.time.isel(time=-1).dt.month),
+        int(pr.time.isel(time=-1).dt.day),
+        int(pr.time.isel(time=-1).dt.hour),
     )
     times = pd.date_range(sdate, end=edate, freq='1H')
 
