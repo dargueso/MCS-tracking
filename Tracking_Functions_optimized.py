@@ -491,7 +491,7 @@ def ReadERA5(
     DataAll[:] = np.nan
     tt = 0
 
-    for mm in range(len(TimeDD)):
+    for mm,_ in enumerate(TimeDD):
         YYYYMM = str(TimeDD[mm].year) + str(TimeDD[mm].month).zfill(2)
         YYYYMMDD = (
             str(TimeDD[mm].year)
@@ -511,7 +511,7 @@ def ReadERA5(
             & (TimeDD[mm].day == TIME.day)
         ]
 
-        for fi in range(len(FILES)):  # [7:9]:
+        for fi,_ in enumerate(FILES):  # [7:9]:
             print(FILES[fi])
             ncid = nc.Dataset(FILES[fi], mode="r")
             time_var = ncid.variables["time"]
@@ -573,14 +573,14 @@ def ConnectLon(Objects):
         OBJ_joint = np.array(
             [
                 OBJ_Left[ii].astype(str) + "_" + OBJ_Right[ii].astype(str)
-                for ii in range(len(OBJ_Left))
+                for ii,_ in enumerate(OBJ_Left)
             ]
         )
         NotSame = OBJ_Left != OBJ_Right
         OBJ_joint = OBJ_joint[NotSame]
         OBJ_unique = np.unique(OBJ_joint)
         # set the eastern object to the number of the western object in all timesteps
-        for ob in range(len(OBJ_unique)):
+        for ob,_ in enumerate(OBJ_unique):
             ObE = int(OBJ_unique[ob].split("_")[1])
             ObW = int(OBJ_unique[ob].split("_")[0])
             Objects[Objects == ObE] = ObW
@@ -628,7 +628,7 @@ def BreakupObjects(
     Av_2Dob = np.zeros((len(rgiObjNrs)))
     Av_2Dob[:] = np.nan
     ii = 1
-    for ob in range(len(rgiObjNrs)):
+    for ob,_ in enumerate(rgiObjNrs):
         #         if TT[ob] <= MinLif:
         #             # ignore short lived objects
         #             continue
@@ -669,7 +669,7 @@ def BreakupObjects(
                     else:
                         VOL = [
                             np.sum(rgiObjects2D_ACT[tt, :] == tt1_obj[jj])
-                            for jj in range(len(tt1_obj))
+                            for jj,_ in enumerate(tt1_obj)
                         ]
                         rgiObjects2D_ACT[
                             tt, rgiObjects2D_ACT[tt, :] == tt1_obj[np.argmax(VOL)]
@@ -687,7 +687,7 @@ def BreakupObjects(
                     if len(ttm1_obj) > 1:
                         VOL = [
                             np.sum(rgiObjects2D_ACT[tt - 1, :] == ttm1_obj[jj])
-                            for jj in range(len(ttm1_obj))
+                            for jj,_ in enumerate(ttm1_obj)
                         ]
                         rgiObjects2D_ACT[tt, rgiObjects2D_ACT[tt, :] == ob2] = ttm1_obj[
                             np.argmax(VOL)
@@ -717,13 +717,13 @@ def BreakupObjects(
     rgiVolObj = np.array(
         [
             np.sum(DATA[Objects[Unique[ob] - 1]] == Unique[ob])
-            for ob in range(len(Unique))
+            for ob,_ in enumerate(Unique)
         ]
     )
     TT = np.array(
         [
             Objects[Unique[ob] - 1][0].stop - Objects[Unique[ob] - 1][0].start
-            for ob in range(len(Unique))
+            for ob,_ in enumerate(Unique)
         ]
     )
 
@@ -731,7 +731,7 @@ def BreakupObjects(
     CY_objectsTMP = np.copy(DATA)
     CY_objectsTMP[:] = 0
     ii = 1
-    for ob in range(len(rgiVolObj)):
+    for ob,_ in enumerate(rgiVolObj):
         if TT[ob] >= MinTime / dT:
             CY_objectsTMP[DATA == Unique[ob]] = ii
             ii = ii + 1
@@ -741,7 +741,7 @@ def BreakupObjects(
     DATA_fin[:] = 0
     Unique = np.unique(CY_objectsTMP)[1:]
     ii = 1
-    for ob in range(len(Unique)):
+    for ob,_ in enumerate(Unique):
         DATA_fin[CY_objectsTMP == Unique[ob]] = ii
         ii = ii + 1
 
@@ -1128,7 +1128,7 @@ def MultiObjectIdentification(
     MS_objectsTMP = np.copy(rgiObjectsAR)
     MS_objectsTMP[:] = 0
     ii = 1
-    for ob in range(len(rgiAreaObj)):
+    for ob,_ in enumerate(rgiAreaObj):
         AreaTest = np.max(
             np.convolve(
                 np.array(rgiAreaObj[ob]) >= MinAreaMS * 1000**2,
@@ -1146,7 +1146,7 @@ def MultiObjectIdentification(
     MS_objects[:] = 0
     Unique = np.unique(MS_objectsTMP)[1:]
     ii = 1
-    for ob in range(len(Unique)):
+    for ob,_ in enumerate(Unique):
         MS_objects[MS_objectsTMP == Unique[ob]] = ii
         ii = ii + 1
 
@@ -1194,7 +1194,7 @@ def MultiObjectIdentification(
     IVT_objectsTMP = np.copy(rgiObjectsIVT)
     IVT_objectsTMP[:] = 0
     ii = 1
-    for ob in range(len(TT_CY)):
+    for ob,_ in enumerate(TT_CY):
         if TT_CY[ob] >= int(MinTimeIVT / dT):
             IVT_objectsTMP[rgiObjectsIVT == (ob + 1)] = ii
             ii = ii + 1
@@ -1203,7 +1203,7 @@ def MultiObjectIdentification(
     IVT_objects[:] = 0
     Unique = np.unique(IVT_objectsTMP)[1:]
     ii = 1
-    for ob in range(len(Unique)):
+    for ob,_ in enumerate(Unique):
         IVT_objects[IVT_objectsTMP == Unique[ob]] = ii
         ii = ii + 1
 
@@ -1246,7 +1246,7 @@ def MultiObjectIdentification(
         Objects = ndimage.find_objects(MS_objects.astype(int))
         IVT_objects = MS_objects
     aa = 1
-    for ii in range(len(Objects)):
+    for ii,_ in enumerate(Objects):
         if Objects[ii] == None:
             continue
         ObjACT = IVT_objects[Objects[ii]] == ii + 1
@@ -1274,7 +1274,7 @@ def MultiObjectIdentification(
                 XX = XX + [PointsObj[simplex, 0][0]]
                 YY = YY + [PointsObj[simplex, 1][0]]
 
-            points = [[XX[ii], YY[ii]] for ii in range(len(YY))]
+            points = [[XX[ii], YY[ii]] for ii,_ in enumerate(YY)]
             BOX = minimum_bounding_rectangle(np.array(PointsObj))
 
             DIST = np.zeros((3))
@@ -1334,7 +1334,7 @@ def MultiObjectIdentification(
     CY_objectsTMP = np.copy(rgiObjectsUD)
     CY_objectsTMP[:] = 0
     ii = 1
-    for ob in range(len(rgiVolObj)):
+    for ob,_ in enumerate(rgiVolObj):
         if TT_CY[ob] >= int(MinTimeCY / dT):
             CY_objectsTMP[rgiObjectsUD == (ob + 1)] = ii
             ii = ii + 1
@@ -1344,7 +1344,7 @@ def MultiObjectIdentification(
     CY_objects[:] = 0
     Unique = np.unique(CY_objectsTMP)[1:]
     ii = 1
-    for ob in range(len(Unique)):
+    for ob,_ in enumerate(Unique):
         CY_objects[CY_objectsTMP == Unique[ob]] = ii
         ii = ii + 1
 
@@ -1402,7 +1402,7 @@ def MultiObjectIdentification(
     ACY_objectsTMP = np.copy(rgiObjectsUD)
     ACY_objectsTMP[:] = 0
     ii = 1
-    for ob in range(len(rgiVolObj)):
+    for ob,_ in enumerate(rgiVolObj):
         if TT_ACY[ob] >= MinTimeACY:
             #     if rgiVolObj[ob] >= MinVol:
             ACY_objectsTMP[rgiObjectsUD == (ob + 1)] = ii
@@ -1413,7 +1413,7 @@ def MultiObjectIdentification(
     ACY_objects[:] = 0
     Unique = np.unique(ACY_objectsTMP)[1:]
     ii = 1
-    for ob in range(len(Unique)):
+    for ob,_ in enumerate(Unique):
         ACY_objects[ACY_objectsTMP == Unique[ob]] = ii
         ii = ii + 1
 
@@ -1526,7 +1526,7 @@ def MultiObjectIdentification(
     PR_objects = np.copy(rgiObjectsPR)
     PR_objects[:] = 0
     ii = 1
-    for ob in range(len(rgiAreaObj)):
+    for ob,_ in enumerate(rgiAreaObj):
         AreaTest = np.max(
             np.convolve(
                 np.array(rgiAreaObj[ob]) >= MinAreaPR * 1000**2,
@@ -1604,7 +1604,7 @@ def MultiObjectIdentification(
     C_objects = np.copy(rgiObjectsC)
     C_objects[:] = 0
     ii = 1
-    for ob in range(len(rgiAreaObj)):
+    for ob,_ in enumerate(rgiAreaObj):
         AreaTest = np.max(
             np.convolve(
                 np.array(rgiAreaObj[ob]) >= MinAreaC * 1000**2,
@@ -1655,7 +1655,7 @@ def MultiObjectIdentification(
     Objects = ndimage.find_objects(PR_objects.astype(int))
     MCS_obj = np.copy(PR_objects)
     MCS_obj[:] = 0
-    for ii in range(len(Objects)):
+    for ii,_ in enumerate(Objects):
         if Objects[ii] == None:
             continue
         ObjACT = PR_objects[Objects[ii]] == ii + 1
@@ -1753,7 +1753,7 @@ def MultiObjectIdentification(
     Objects = ndimage.find_objects(CY_objects.astype(int))
     TC_obj = np.copy(CY_objects)
     TC_obj[:] = 0
-    for ii in range(len(Objects)):
+    for ii,_ in enumerate(Objects):
         if Objects[ii] == None:
             continue
         ObjACT = CY_objects[Objects[ii]] == ii + 1
@@ -1825,7 +1825,7 @@ def MultiObjectIdentification(
             BT_act = np.copy(DATA_all[:, :, :, Variables.index("BT")][Objects[ii]])
             BT_objMean = np.zeros((BT_act.shape[0]))
             BT_objMean[:] = np.nan
-            for tt in range(len(BT_objMean)):
+            for tt,_ in enumerate(BT_objMean):
                 try:
                     BT_objMean[tt] = np.nanmean(BT_act[tt, PR_objACT[tt, :, :] != 0])
                 except:
@@ -1856,10 +1856,10 @@ def MultiObjectIdentification(
         ]
         LS_genesis = np.zeros((len(resultLAT)))
         LS_genesis[:] = np.nan
-        for jj in range(len(resultLAT)):
+        for jj,_ in enumerate(resultLAT):
             LS_genesis[jj] = is_land(resultLON[jj][0], resultLAT[jj][0])
         if np.max(LS_genesis) == 1:
-            for jj in range(len(LS_genesis)):
+            for jj,_ in enumerate(LS_genesis):
                 if LS_genesis[jj] == 1:
                     SetNAN = np.isin(LatLonTrackAct[:, 0], resultLAT[jj])
                     LatLonTrackAct[SetNAN, :] = np.nan
@@ -2021,7 +2021,7 @@ def readIMERG(TimeHH, Lon, Lat, iNorth, iEast, iSouth, iWest, dT):
     PR_DATA = np.zeros((len(TimeHH), Lon.shape[0], Lon.shape[1]))
     PR_DATA[:] = np.nan
 
-    for tt in tqdm(range(len(TimeHH))):
+    for tt,_ in tqdm(enumerate(TimeHH)):
         #     print('    read '+str(TimeHH[tt]))
         PR_IM = np.zeros((2, Lon.shape[0], Lon.shape[1]))
         for hh in range(2):
@@ -2101,7 +2101,7 @@ def readMERGIR(TimeBT, Lon, Lat, dT, FocusRegion):
     wtsGS = DATA["wts"]
     # Define region where MERGIR is valid
     rgrGridCells = [
-        (Lon.ravel()[ii], Lat.ravel()[ii]) for ii in range(len(Lon.ravel()))
+        (Lon.ravel()[ii], Lat.ravel()[ii]) for ii,_ in enumerate(Lon.ravel())
     ]
     rgrSRactP = np.zeros((Lon.shape[0] * Lon.shape[1]))
     first = np.append(LonG[0, :][:, None], LatG[0, :][:, None], axis=1)
@@ -2240,7 +2240,7 @@ def MCStracking(
     PR_objects = np.copy(rgiObjectsPR)
     PR_objects[:] = 0
     ii = 1
-    for ob in range(len(rgiAreaObj)):
+    for ob,_ in enumerate(rgiAreaObj):
         AreaTest = np.max(
             np.convolve(
                 np.array(rgiAreaObj[ob]) >= MinAreaPR * 1000**2,
@@ -2349,7 +2349,7 @@ def MCStracking(
     Objects = ndimage.find_objects(PR_objects.astype(int))
     MCS_obj = np.copy(PR_objects)
     MCS_obj[:] = 0
-    for ii in range(len(Objects)):
+    for ii,_ in enumerate(Objects):
         if Objects[ii] == None:
             continue
         ObjACT = PR_objects[Objects[ii]] == ii + 1
