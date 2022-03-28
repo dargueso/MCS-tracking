@@ -13,7 +13,6 @@ import os
 from pdb import set_trace as stop
 import pickle
 from itertools import groupby
-from math import radians, cos, sin, asin, sqrt
 import datetime
 
 
@@ -613,9 +612,9 @@ def BreakupObjects(
     MinLif = int(24 / dT)  # min livetime of object to be split
     AVmax = 1.5
 
-    rgiObj_Struct2D = np.zeros((3, 3, 3))
-    rgiObj_Struct2D[1, :, :] = 1
-    rgiObjects2D, nr_objects2D = ndimage.label(DATA, structure=rgiObj_Struct2D)
+    obj_structure_2D = np.zeros((3, 3, 3))
+    obj_structure_2D[1, :, :] = 1
+    rgiObjects2D, nr_objects2D = ndimage.label(DATA, structure=obj_structure_2D)
 
     rgiObjNrs = np.unique(DATA)[1:]
     TT = np.array([Objects[ob][0].stop - Objects[ob][0].start for ob in range(MaxOb)])
@@ -904,8 +903,8 @@ def MultiObjectIdentification(
     dx,dy,grid_cell_area,grid_spacing = calc_grid_distance_area(Lat,Lon)
     grid_cell_area[grid_cell_area < 0] = 0
 
-    rgiObj_Struct = np.zeros((3, 3, 3))
-    rgiObj_Struct[:, :, :] = 1
+    obj_structure_3D = np.ones((3,3,3))
+
     StartDay = Time[0]
     SetupString = (
         "dt-"
@@ -1106,7 +1105,7 @@ def MultiObjectIdentification(
     #### ------------------------
     print("        track  moisture streams in extratropics")
     potARs = VapTrans > MinMSthreshold
-    rgiObjectsAR, nr_objectsUD = ndimage.label(potARs, structure=rgiObj_Struct)
+    rgiObjectsAR, nr_objectsUD = ndimage.label(potARs, structure=obj_structure_3D)
     print("            " + str(nr_objectsUD) + " object found")
 
     # sort the objects according to their size
@@ -1180,7 +1179,7 @@ def MultiObjectIdentification(
     start = time.perf_counter()
 
     potIVTs = IVT > IVTtrheshold
-    rgiObjectsIVT, nr_objectsUD = ndimage.label(potIVTs, structure=rgiObj_Struct)
+    rgiObjectsIVT, nr_objectsUD = ndimage.label(potIVTs, structure=obj_structure_3D)
     print("        " + str(nr_objectsUD) + " object found")
 
     # sort the objects according to their size
@@ -1317,7 +1316,7 @@ def MultiObjectIdentification(
     # Pressure_anomaly[np.isnan(Pressure_anomaly)] = 0
     Pressure_anomaly[:, Mask == 0] = 0
     rgiObjectsUD, nr_objectsUD = ndimage.label(
-        Pressure_anomaly, structure=rgiObj_Struct
+        Pressure_anomaly, structure=obj_structure_3D
     )
     print("        " + str(nr_objectsUD) + " object found")
 
@@ -1385,7 +1384,7 @@ def MultiObjectIdentification(
     start = time.perf_counter()
     HighPressure_annomaly[:, Mask == 0] = 0
     rgiObjectsUD, nr_objectsUD = ndimage.label(
-        HighPressure_annomaly, structure=rgiObj_Struct
+        HighPressure_annomaly, structure=obj_structure_3D
     )
     print("        " + str(nr_objectsUD) + " object found")
 
@@ -1447,14 +1446,15 @@ def MultiObjectIdentification(
     # ------------------------
     print("    identify frontal zones")
     start = time.perf_counter()
-    rgiObj_Struct_Fronts = np.zeros((3, 3, 3))
-    rgiObj_Struct_Fronts[1, :, :] = 1
+
+    obj_structure_2D = np.zeros((3, 3, 3))
+    obj_structure_2D [1, :, :] = 1
 
     Frontal_Diagnostic = np.abs(Frontal_Diagnostic)
     Frontal_Diagnostic[:, FrontMask == 0] = 0
     Fmask = Frontal_Diagnostic > 1
 
-    rgiObjectsUD, nr_objectsUD = ndimage.label(Fmask, structure=rgiObj_Struct_Fronts)
+    rgiObjectsUD, nr_objectsUD = ndimage.label(Fmask, structure=obj_structure_2D)
     print("        " + str(nr_objectsUD) + " object found")
 
     # # calculate object size
@@ -1488,7 +1488,7 @@ def MultiObjectIdentification(
         DATA_all[:, :, :, Variables.index("PR")], sigma=(0, SmoothSigmaP, SmoothSigmaP)
     )
     PRmask = PRsmooth >= Pthreshold * dT
-    rgiObjectsPR, nr_objectsUD = ndimage.label(PRmask, structure=rgiObj_Struct)
+    rgiObjectsPR, nr_objectsUD = ndimage.label(PRmask, structure=obj_structure_3D)
     print("        " + str(nr_objectsUD) + " precipitation object found")
 
     if connectLon == 1:
@@ -1572,7 +1572,7 @@ def MultiObjectIdentification(
         DATA_all[:, :, :, Variables.index("BT")], sigma=(0, SmoothSigmaC, SmoothSigmaC)
     )
     Cmask = Csmooth <= Cthreshold
-    rgiObjectsC, nr_objectsUD = ndimage.label(Cmask, structure=rgiObj_Struct)
+    rgiObjectsC, nr_objectsUD = ndimage.label(Cmask, structure=obj_structure_3D)
     print("        " + str(nr_objectsUD) + " cloud object found")
 
     if connectLon == 1:
@@ -2147,7 +2147,7 @@ def readMERGIR(TimeBT, Lon, Lat, dT, FocusRegion):
     return CLOUD_DATA
 
 
-###########################################################
+############################################################
 ###########################################################
 #### ======================================================
 # function to perform MCS tracking
@@ -2189,8 +2189,8 @@ def MCStracking(
     dx,dy,grid_cell_area,grid_spacing = calc_grid_distance_area(Lat,Lon)
     grid_cell_area[grid_cell_area < 0] = 0
 
-    rgiObj_Struct = np.zeros((3, 3, 3))
-    rgiObj_Struct[:, :, :] = 1
+    obj_structure_3D = np.ones((3,3,3))
+
     StartDay = Time[0]
 
     # connect over date line?
@@ -2206,7 +2206,7 @@ def MCStracking(
         DATA_all[:, :, :, Variables.index("PR")], sigma=(0, SmoothSigmaP, SmoothSigmaP)
     )
     PRmask = PRsmooth >= Pthreshold * DT
-    rgiObjectsPR, nr_objectsUD = ndimage.label(PRmask, structure=rgiObj_Struct)
+    rgiObjectsPR, nr_objectsUD = ndimage.label(PRmask, structure=obj_structure_3D)
     print("            " + str(nr_objectsUD) + " precipitation object found")
 
     # connect objects over date line
@@ -2276,7 +2276,7 @@ def MCStracking(
         DATA_all[:, :, :, Variables.index("Tb")], sigma=(0, SmoothSigmaC, SmoothSigmaC)
     )
     Cmask = Csmooth <= Cthreshold
-    rgiObjectsC, nr_objectsUD = ndimage.label(Cmask, structure=rgiObj_Struct)
+    rgiObjectsC, nr_objectsUD = ndimage.label(Cmask, structure=obj_structure_3D)
     print("            " + str(nr_objectsUD) + " cloud object found")
 
     # connect objects over date line
@@ -2425,7 +2425,7 @@ def MCStracking(
         else:
             continue
 
-    rgiObjectsMCS, nr_objectsUD = ndimage.label(MCS_obj, structure=rgiObj_Struct)
+    rgiObjectsMCS, nr_objectsUD = ndimage.label(MCS_obj, structure=obj_structure_3D)
     grMCSs = ObjectCharacteristics(
         rgiObjectsMCS,  # feature object file
         DATA_all[
