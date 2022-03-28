@@ -30,7 +30,7 @@ import pandas as pd
 
 from joblib import Parallel, delayed
 
-import epicc_config as cfg
+import mcs_config as cfg
 from constants import const as const
 from Tracking_Functions_optimized import MCStracking
 
@@ -45,30 +45,13 @@ year = 2013
 month = 9
 freq = "01H"
 
-Variables = ["PR", "Tb"]
-# Tracking parameters
-dT = 1  # temporal resolution of data for tracking in hours
+dT = 1
+###########################################################
+###########################################################
 
-# MINIMUM REQUIREMENTS FOR FEATURE DETECTION
-# precipitation tracking options
-SmoothSigmaP = 0  # Gaussion std for precipitation smoothing
-Pthreshold = 5  # precipitation threshold [mm/h]
-MinTimePR = 3  # minum lifetime of PR feature in hours
-MinAreaPR = 500  # minimum area of precipitation feature in km2
+#reading config file
 
-# Brightness temperature (Tb) tracking setup
-SmoothSigmaC = 0  # Gaussion std for Tb smoothing
-Cthreshold = 241  # minimum Tb of cloud shield
-MinTimeC = 3  # minium lifetime of cloud shield in hours
-MinAreaC = 5000  # minimum area of cloud shield in km2
 
-# MCs detection
-MCS_Minsize = MinAreaPR  # minimum area of MCS precipitation object in km2
-MCS_minPR = 10  # minimum max precipitation in mm/h
-MCS_MinPeakPR = 10  # Minimum lifetime peak of MCS precipitation
-CL_MaxT = 225  # minimum brightness temperature
-CL_Area = MinAreaC  # min cloud area size in km2
-MCS_minTime = 4  # minimum lifetime of MCS
 
 ############# END OF USER MODIF ###########################
 ###########################################################
@@ -91,15 +74,15 @@ def main():
 ###########################################################
 
 
-def storm_tracking(PR_finname):
+def storm_tracking(pr_finname):
 
     OLR = (
-        xr.open_dataset(f"{PR_finname.replace('RAIN','OLR')}")
+        xr.open_dataset(f"{pr_finname.replace('RAIN','OLR')}")
         .isel(time=slice(216, 240))
         .squeeze()
     )
-    RAIN = xr.open_dataset(f"{PR_finname}").isel(time=slice(216, 240)).squeeze()
-    # WSPD  = xr.open_dataset(f"{PR_finname.replace('RAIN','WSPD10')}").isel(time=slice(216,240)).squeeze()
+    RAIN = xr.open_dataset(f"{pr_finname}").isel(time=slice(216, 240)).squeeze()
+    # WSPD  = xr.open_dataset(f"{pr_finname.replace('RAIN','WSPD10')}").isel(time=slice(216,240)).squeeze()
 
     BT = (OLR.OLR.values / const.SB_sigma) ** (0.25)
 
@@ -108,54 +91,54 @@ def storm_tracking(PR_finname):
     Lat = RAIN.lat.values
     Lon = RAIN.lon.values
 
-    StartDay = datetime.datetime(
+    sdate = datetime.datetime(
         RAIN.time.isel(time=0).dt.year,
         RAIN.time.isel(time=0).dt.month,
         RAIN.time.isel(time=0).dt.day,
         RAIN.time.isel(time=0).dt.hour,
     )
-    StopDay = datetime.datetime(
+    edate = datetime.datetime(
         RAIN.time.isel(time=-1).dt.year,
         RAIN.time.isel(time=-1).dt.month,
         RAIN.time.isel(time=-1).dt.day,
         RAIN.time.isel(time=-1).dt.hour,
     )
-    Time = pd.date_range(StartDay, end=StopDay, freq="1H")
+    Time = pd.date_range(sdate, end=edate, freq=freq)
 
     ###########################################################
     ###########################################################
 
     start_time = time.time()
 
-    fileout = PR_finname.replace("RAIN", "Storms")
+    fileout = pr_finname.replace("RAIN", "Storms")
     grMCSs, MCS_obj = MCStracking(
         DATA_all,
         Time,
         Lon,
         Lat,
-        Variables,
+        cfg.Variables,
         dT,
-        SmoothSigmaP=SmoothSigmaP,
-        Pthreshold=Pthreshold,
-        MinTimePR=MinTimePR,
-        MinAreaPR=MinAreaPR,
-        SmoothSigmaC=SmoothSigmaC,
-        Cthreshold=Cthreshold,
-        MinTimeC=MinTimeC,
-        MinAreaC=MinAreaC,
-        MCS_Minsize=MCS_Minsize,
-        MCS_minPR=MCS_minPR,
-        MCS_MinPeakPR=MCS_MinPeakPR,
-        CL_MaxT=CL_MaxT,
-        CL_Area=CL_Area,
-        MCS_minTime=MCS_minTime,
-        NCfile=fileout,
+        SmoothSigmaP    =   cfg.SmoothSigmaP,
+        Pthreshold      =   cfg.Pthreshold,
+        MinTimePR       =   cfg.MinTimePR,
+        MinAreaPR       =   cfg.MinAreaPR,
+        SmoothSigmaC    =   cfg.SmoothSigmaC,
+        Cthreshold      =   cfg.Cthreshold,
+        MinTimeC        =   cfg.MinTimeC,
+        MinAreaC        =   cfg.MinAreaC,
+        MCS_Minsize     =   cfg.MCS_Minsize,
+        MCS_minPR       =   cfg.MCS_minPR,
+        MCS_MinPeakPR   =   cfg.MCS_MinPeakPR,
+        CL_MaxT         =   cfg.CL_MaxT,
+        CL_Area         =   cfg.CL_Area,
+        MCS_minTime     =   cfg.MCS_minTime,
+        NCfile          =   fileout,
     )
 
     end_time = time.time()
     print(f"======> DONE in {(end_time-start_time):.2f} seconds \n")
 
-
+    import pdb; pdb.set_trace()
 ###############################################################################
 ##### __main__  scope
 ###############################################################################
