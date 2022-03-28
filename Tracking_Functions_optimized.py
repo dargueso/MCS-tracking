@@ -1280,7 +1280,7 @@ def MultiObjectIdentification(
             DIST = np.zeros((3))
             for rr in range(3):
                 DIST[rr] = haversine(
-                    BOX[rr][0], BOX[rr][1], BOX[rr + 1][0], BOX[rr + 1][1]
+                     BOX[rr][1], BOX[rr][0], BOX[rr + 1][1],BOX[rr + 1][0]
                 )
             OBJ_max_len[tt] = np.max(DIST)
             if OBJ_max_len[tt] <= AR_MinLen:
