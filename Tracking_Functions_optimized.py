@@ -103,8 +103,8 @@ def ObjectCharacteristics(
     TIME,  # timesteps of the data
     Lat,  # 2D latidudes
     Lon,  # 2D Longitudes
-    Gridspacing,  # average grid spacing
-    Area,
+    grid_spacing,  # average grid spacing
+    grid_cell_area,
     MinTime=1,  # minimum lifetime of an object
     Boundary=1,
 ):  # 1 --> remove object when it hits the boundary of the domain
@@ -132,7 +132,7 @@ def ObjectCharacteristics(
                 ValAct = PR_orig[TT, :, :][Objects[0]]
                 ValAct[ObjAct == 0] = np.nan
                 AreaAct = np.repeat(
-                    Area[Objects[0][1:]][None, :, :], ValAct.shape[0], axis=0
+                    grid_cell_area[Objects[0][1:]][None, :, :], ValAct.shape[0], axis=0
                 )
                 AreaAct[ObjAct == 0] = np.nan
                 LatAct = np.copy(Lat[Objects[0][1:]])
@@ -178,7 +178,7 @@ def ObjectCharacteristics(
                         ** 0.5
                         for tt in range(ValAct.shape[0] - 1)
                     ]
-                ) * (Gridspacing / 1000.0)
+                ) * (grid_spacing / 1000.0)
 
                 grAct = {
                     "rgrMassCent": rgrMassCent,
@@ -273,7 +273,7 @@ def Feature_Calculation(
     dy,  # distance between latitude cells
     Lat,  # Latitude coordinates
     dT,  # time step in hours
-    Gridspacing,
+    grid_spacing,
 ):  # grid spacing in m
 
     # 11111111111111111111111111111111111111111111111111
@@ -317,15 +317,15 @@ def Feature_Calculation(
     # remove high-frequency variabilities --> smooth over 100 x 100 km (no temporal smoothing)
     SLP_smooth = ndimage.uniform_filter(
         SLP,
-        size=[1, int(100 / (Gridspacing / 1000.0)), int(100 / (Gridspacing / 1000.0))],
+        size=[1, int(100 / (grid_spacing / 1000.0)), int(100 / (grid_spacing / 1000.0))],
     )
     # smoothign over 3000 x 3000 km and 78 hours
     SLPsmoothAn = ndimage.uniform_filter(
         SLP,
         size=[
             int(78 / dT),
-            int(int(3000 / (Gridspacing / 1000.0))),
-            int(int(3000 / (Gridspacing / 1000.0))),
+            int(int(3000 / (grid_spacing / 1000.0))),
+            int(int(3000 / (grid_spacing / 1000.0))),
         ],
     )
     SLP_Anomaly = np.array(SLP_smooth - SLPsmoothAn)
@@ -901,8 +901,8 @@ def MultiObjectIdentification(
     Variables = ["V", "U", "T", "Q", "SLP", "IVTE", "IVTN", "PR", "BT"]
 
     #Calculate grid spacing and other grid parameters
-    dx,dy,Area,GridSpacing = calc_grid_distance_area(Lat,Lon)
-    Area[Area < 0] = 0
+    dx,dy,grid_cell_area,grid_spacing = calc_grid_distance_area(Lat,Lon)
+    grid_cell_area[grid_cell_area < 0] = 0
 
     rgiObj_Struct = np.zeros((3, 3, 3))
     rgiObj_Struct[:, :, :] = 1
@@ -1003,8 +1003,8 @@ def MultiObjectIdentification(
             SLP,
             size=[
                 1,
-                int(100 / (Gridspacing / 1000.0)),
-                int(100 / (Gridspacing / 1000.0)),
+                int(100 / (grid_spacing / 1000.0)),
+                int(100 / (grid_spacing / 1000.0)),
             ],
         )
         # smoothign over 3000 x 3000 km and 78 hours
@@ -1012,8 +1012,8 @@ def MultiObjectIdentification(
             SLP,
             size=[
                 int(78 / dT),
-                int(int(3000 / (Gridspacing / 1000.0))),
-                int(int(3000 / (Gridspacing / 1000.0))),
+                int(int(3000 / (grid_spacing / 1000.0))),
+                int(int(3000 / (grid_spacing / 1000.0))),
             ],
         )
     else:
@@ -1026,8 +1026,8 @@ def MultiObjectIdentification(
             V,
             size=[
                 int(78 / dT),
-                int(int(3000 / (Gridspacing / 1000.0))),
-                int(int(3000 / (Gridspacing / 1000.0))),
+                int(int(3000 / (grid_spacing / 1000.0))),
+                int(int(3000 / (grid_spacing / 1000.0))),
             ],
         )
         W = 0 * U.copy() + 1
@@ -1036,8 +1036,8 @@ def MultiObjectIdentification(
             W,
             size=[
                 int(78 / dT),
-                int(int(3000 / (Gridspacing / 1000.0))),
-                int(int(3000 / (Gridspacing / 1000.0))),
+                int(int(3000 / (grid_spacing / 1000.0))),
+                int(int(3000 / (grid_spacing / 1000.0))),
             ],
         )
         SLPsmoothAn = VV / WW
@@ -1046,16 +1046,16 @@ def MultiObjectIdentification(
             V,
             size=[
                 1,
-                int(100 / (Gridspacing / 1000.0)),
-                int(100 / (Gridspacing / 1000.0)),
+                int(100 / (grid_spacing / 1000.0)),
+                int(100 / (grid_spacing / 1000.0)),
             ],
         )
         WW = ndimage.uniform_filter(
             W,
             size=[
                 1,
-                int(100 / (Gridspacing / 1000.0)),
-                int(100 / (Gridspacing / 1000.0)),
+                int(100 / (grid_spacing / 1000.0)),
+                int(100 / (grid_spacing / 1000.0)),
             ],
         )
         SLP_smooth = VV / WW
@@ -1116,7 +1116,7 @@ def MultiObjectIdentification(
         [
             [
                 np.sum(
-                    Area[Objects[ob][1:]][rgiObjectsAR[Objects[ob]][tt, :, :] == ob + 1]
+                    grid_cell_area[Objects[ob][1:]][rgiObjectsAR[Objects[ob]][tt, :, :] == ob + 1]
                 )
                 for tt in range(rgiObjectsAR[Objects[ob]].shape[0])
             ]
@@ -1170,8 +1170,8 @@ def MultiObjectIdentification(
         Time,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
-        Gridspacing,
-        Area,
+        grid_spacing,
+        grid_cell_area,
         MinTime=int(MinTimeMS / dT),
     )  # minimum livetime in hours
 
@@ -1227,8 +1227,8 @@ def MultiObjectIdentification(
         Time,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
-        Gridspacing,
-        Area,
+        grid_spacing,
+        grid_cell_area,
         MinTime=int(MinTimeIVT / dT),
     )  # minimum livetime in hours
     end = time.perf_counter()
@@ -1368,8 +1368,8 @@ def MultiObjectIdentification(
         Time,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
-        Gridspacing,
-        Area,
+        grid_spacing,
+        grid_cell_area,
         MinTime=int(MinTimeCY / dT),
     )
     end = time.perf_counter()
@@ -1436,8 +1436,8 @@ def MultiObjectIdentification(
         Time,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
-        Gridspacing,
-        Area,
+        grid_spacing,
+        grid_cell_area,
         MinTime=int(MinTimeCY / dT),
     )
     end = time.perf_counter()
@@ -1461,7 +1461,7 @@ def MultiObjectIdentification(
     Objects = ndimage.find_objects(rgiObjectsUD)
     rgiAreaObj = np.array(
         [
-            np.sum(Area[Objects[ob][1:]][rgiObjectsUD[Objects[ob]][0, :, :] == ob + 1])
+            np.sum(grid_cell_area[Objects[ob][1:]][rgiObjectsUD[Objects[ob]][0, :, :] == ob + 1])
             for ob in range(nr_objectsUD)
         ]
     )
@@ -1512,7 +1512,7 @@ def MultiObjectIdentification(
         [
             [
                 np.sum(
-                    Area[Objects[ob][1], Objects[ob][2]][
+                    grid_cell_area[Objects[ob][1], Objects[ob][2]][
                         rgiObjectsPR[Objects[ob]][tt, :, :] == ob + 1
                     ]
                 )
@@ -1558,8 +1558,8 @@ def MultiObjectIdentification(
         Time,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
-        Gridspacing,
-        Area,
+        grid_spacing,
+        grid_cell_area,
         MinTime=int(MinTimePR / dT),
     )  # minimum livetime in hours
     end = time.perf_counter()
@@ -1587,7 +1587,7 @@ def MultiObjectIdentification(
         [
             [
                 np.sum(
-                    Area[Objects[ob][1], Objects[ob][2]][
+                    grid_cell_area[Objects[ob][1], Objects[ob][2]][
                         rgiObjectsC[Objects[ob]][tt, :, :] == ob + 1
                     ]
                 )
@@ -1640,8 +1640,8 @@ def MultiObjectIdentification(
         Time,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
-        Gridspacing,
-        Area,
+        grid_spacing,
+        grid_cell_area,
         MinTime=int(MinTimeC / dT),
     )  # minimum livetime in hours
     end = time.perf_counter()
@@ -1663,7 +1663,7 @@ def MultiObjectIdentification(
         Cloud_ACT = np.copy(C_objects[Objects[ii]])
         LonObj = Lon[Objects[ii][1], Objects[ii][2]]
         LatObj = Lat[Objects[ii][1], Objects[ii][2]]
-        Area_ACT = Area[Objects[ii][1], Objects[ii][2]]
+        Area_ACT = grid_cell_area[Objects[ii][1], Objects[ii][2]]
         PR_ACT = DATA_all[:, :, :, Variables.index("PR")][Objects[ii]]
 
         PR_Size = np.array(
@@ -1687,7 +1687,7 @@ def MultiObjectIdentification(
         CLOUD_obj_act = np.in1d(CL_OB_TMP.flatten(), rgiCL_obj).reshape(CL_OB_TMP.shape)
         Cloud_Size = np.array(
             [
-                np.sum(Area[CLOUD_obj_act[tt, :, :] > 0])
+                np.sum(grid_cell_area[CLOUD_obj_act[tt, :, :] > 0])
                 for tt in range(CLOUD_obj_act.shape[0])
             ]
         )
@@ -2182,8 +2182,8 @@ def MCStracking(
 
     #Calculating grid distances and areas
 
-    dx,dy,Area,GridSpacing = calc_grid_distance_area(Lat,Lon)
-    Area[Area < 0] = 0
+    dx,dy,grid_cell_area,grid_spacing = calc_grid_distance_area(Lat,Lon)
+    grid_cell_area[grid_cell_area < 0] = 0
 
     rgiObj_Struct = np.zeros((3, 3, 3))
     rgiObj_Struct[:, :, :] = 1
@@ -2222,7 +2222,7 @@ def MCStracking(
         [
             [
                 np.sum(
-                    Area[Objects[ob][1:]][rgiObjectsPR[Objects[ob]][tt, :, :] == ob + 1]
+                    grid_cell_area[Objects[ob][1:]][rgiObjectsPR[Objects[ob]][tt, :, :] == ob + 1]
                 )
                 for tt in range(rgiObjectsPR[Objects[ob]].shape[0])
             ]
@@ -2261,8 +2261,8 @@ def MCStracking(
         Time,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
-        Gridspacing,
-        Area,
+        grid_spacing,
+        grid_cell_area,
         MinTime=int(MinTimePR / dT),
     )  # minimum livetime in hours
 
@@ -2287,7 +2287,7 @@ def MCStracking(
         [
             [
                 np.sum(
-                    Area[Objects[ob][1:]][rgiObjectsC[Objects[ob]][tt, :, :] == ob + 1]
+                    grid_cell_area[Objects[ob][1:]][rgiObjectsC[Objects[ob]][tt, :, :] == ob + 1]
                 )
                 for tt in range(rgiObjectsC[Objects[ob]].shape[0])
             ]
@@ -2333,8 +2333,8 @@ def MCStracking(
         Time,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
-        Gridspacing,
-        Area,
+        grid_spacing,
+        grid_cell_area,
         MinTime=int(MinTimeC / dT),
     )  # minimum livetime in hours
 
@@ -2350,7 +2350,7 @@ def MCStracking(
         if ObjACT.shape[0] < 2:
             continue
         Cloud_ACT = np.copy(C_objects[Objects[ii]])
-        Area_ACT = Area[Objects[ii][1], Objects[ii][2]]
+        Area_ACT = grid_cell_area[Objects[ii][1], Objects[ii][2]]
         PR_ACT = DATA_all[:, :, :, Variables.index("PR")][Objects[ii]]
 
         PR_Size = np.array(
@@ -2373,7 +2373,7 @@ def MCStracking(
         CLOUD_obj_act = np.in1d(CL_OB_TMP.flatten(), rgiCL_obj).reshape(CL_OB_TMP.shape)
         Cloud_Size = np.array(
             [
-                np.sum(Area[CLOUD_obj_act[tt, :, :] > 0])
+                np.sum(grid_cell_area[CLOUD_obj_act[tt, :, :] > 0])
                 for tt in range(CLOUD_obj_act.shape[0])
             ]
         )
@@ -2431,8 +2431,8 @@ def MCStracking(
         Time,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
-        Gridspacing,
-        Area,
+        grid_spacing,
+        grid_cell_area,
         MinTime=int(MCS_minTime / dT),
     )  # minimum livetime in hours
 
