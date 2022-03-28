@@ -20,15 +20,15 @@
 # (https://colab.research.google.com/drive/1MrQFujQCFhesk0MCUSqB41Mx3AHEd1ua?usp=sharing)
 #####################################################################
 """
+from glob import glob
+import datetime
+import time
 
 import numpy as np
 import xarray as xr
-from glob import glob
-import time
-import datetime
 import pandas as pd
 
-# from joblib import Parallel, delayed
+from joblib import Parallel, delayed
 
 import epicc_config as cfg
 from constants import const as const
@@ -78,67 +78,91 @@ wrun = wrf_runs[0]
 ###########################################################
 ###########################################################
 
-filesin = sorted(glob(f"{cfg.path_in}/{wrun}/{cfg.patt_in}_{freq}_RAIN_20??-??.nc"))
+
+def main():
+
+    filesin = sorted(
+        glob(f"{cfg.path_in}/{wrun}/{cfg.patt_in}_{freq}_RAIN_201[3-4]-09.nc")
+    )
+    Parallel(n_jobs=1)(delayed(storm_tracking)(fin_name) for fin_name in filesin)
 
 
 ###########################################################
 ###########################################################
 
-OLR = xr.open_dataset(f"{cfg.path_in}/{wrun}/UIB_01H_OLR_2013-09.nc").isel(time=slice(216,240)).squeeze()
-RAIN = xr.open_dataset(f"{cfg.path_in}/{wrun}/UIB_01H_RAIN_2013-09.nc").isel(time=slice(216,240)).squeeze()
-# WSPD  = xr.open_dataset(f'{cfg.path_in}/{wrun}/UIB_01H_WSPD10_2013-09.nc').squeeze()
+
+def storm_tracking(PR_finname):
+
+    OLR = (
+        xr.open_dataset(f"{PR_finname.replace('RAIN','OLR')}")
+        .isel(time=slice(216, 240))
+        .squeeze()
+    )
+    RAIN = xr.open_dataset(f"{PR_finname}").isel(time=slice(216, 240)).squeeze()
+    # WSPD  = xr.open_dataset(f"{PR_finname.replace('RAIN','WSPD10')}").isel(time=slice(216,240)).squeeze()
+
+    BT = (OLR.OLR.values / const.SB_sigma) ** (0.25)
+
+    DATA_all = np.stack([RAIN.RAIN.values, BT], axis=3)
+
+    Lat = RAIN.lat.values
+    Lon = RAIN.lon.values
+
+    StartDay = datetime.datetime(
+        RAIN.time.isel(time=0).dt.year,
+        RAIN.time.isel(time=0).dt.month,
+        RAIN.time.isel(time=0).dt.day,
+        RAIN.time.isel(time=0).dt.hour,
+    )
+    StopDay = datetime.datetime(
+        RAIN.time.isel(time=-1).dt.year,
+        RAIN.time.isel(time=-1).dt.month,
+        RAIN.time.isel(time=-1).dt.day,
+        RAIN.time.isel(time=-1).dt.hour,
+    )
+    Time = pd.date_range(StartDay, end=StopDay, freq="1H")
+
+    ###########################################################
+    ###########################################################
+
+    start_time = time.time()
+
+    fileout = PR_finname.replace("RAIN", "Storms")
+    grMCSs, MCS_obj = MCStracking(
+        DATA_all,
+        Time,
+        Lon,
+        Lat,
+        Variables,
+        dT,
+        SmoothSigmaP=SmoothSigmaP,
+        Pthreshold=Pthreshold,
+        MinTimePR=MinTimePR,
+        MinAreaPR=MinAreaPR,
+        SmoothSigmaC=SmoothSigmaC,
+        Cthreshold=Cthreshold,
+        MinTimeC=MinTimeC,
+        MinAreaC=MinAreaC,
+        MCS_Minsize=MCS_Minsize,
+        MCS_minPR=MCS_minPR,
+        MCS_MinPeakPR=MCS_MinPeakPR,
+        CL_MaxT=CL_MaxT,
+        CL_Area=CL_Area,
+        MCS_minTime=MCS_minTime,
+        NCfile=fileout,
+    )
+
+    end_time = time.time()
+    print(f"======> DONE in {(end_time-start_time):.2f} seconds \n")
 
 
-BT = (OLR.OLR.values / const.SB_sigma) ** (0.25)
+###############################################################################
+##### __main__  scope
+###############################################################################
 
-DATA_all = np.stack([RAIN.RAIN.values, BT], axis=3)
+if __name__ == "__main__":
 
-Lat = RAIN.lat.values
-Lon = RAIN.lon.values
-
-StartDay = datetime.datetime(
-    RAIN.time.isel(time=0).dt.year,
-    RAIN.time.isel(time=0).dt.month,
-    RAIN.time.isel(time=0).dt.day,
-    RAIN.time.isel(time=0).dt.hour,
-)
-StopDay = datetime.datetime(
-    RAIN.time.isel(time=-1).dt.year,
-    RAIN.time.isel(time=-1).dt.month,
-    RAIN.time.isel(time=-1).dt.day,
-    RAIN.time.isel(time=-1).dt.hour,
-)
-Time = pd.date_range(StartDay, end=StopDay, freq="1H")
+    main()
 
 ###########################################################
 ###########################################################
-
-start_time = time.time()
-
-NCfile = f"EPICC-MCS-tracking_{year}{month:02d}_.nc"
-grMCSs, MCS_obj = MCStracking(
-    DATA_all,
-    Time,
-    Lon,
-    Lat,
-    Variables,
-    dT,
-    SmoothSigmaP=SmoothSigmaP,
-    Pthreshold=Pthreshold,
-    MinTimePR=MinTimePR,
-    MinAreaPR=MinAreaPR,
-    SmoothSigmaC=SmoothSigmaC,
-    Cthreshold=Cthreshold,
-    MinTimeC=MinTimeC,
-    MinAreaC=MinAreaC,
-    MCS_Minsize=MCS_Minsize,
-    MCS_minPR=MCS_minPR,
-    MCS_MinPeakPR=MCS_MinPeakPR,
-    CL_MaxT=CL_MaxT,
-    CL_Area=CL_Area,
-    MCS_minTime=MCS_minTime,
-    NCfile=NCfile,
-)
-
-end_time = time.time()
-print(f"======> DONE in {(end_time-start_time):.2f} seconds \n")
