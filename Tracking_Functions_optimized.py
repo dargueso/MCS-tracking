@@ -1475,7 +1475,7 @@ def MultiObjectIdentification(
 
     #     FR_objects=np.copy(rgiObjectsUD); FR_objects[:]=0
     #     ii = 1
-    #     for ob in range(len(rgiAreaObj)):
+    #     for ob,_ in enumerate(rgiAreaObj):
     #         if rgiAreaObj[ob] >= MinAreaFR*1000**2:
     #             FR_objects[rgiObjectsUD == (ob+1)] = ii
     #             ii = ii + 1
@@ -2148,16 +2148,16 @@ def readMERGIR(TimeBT, Lon, Lat, dT, FocusRegion):
     return CLOUD_DATA
 
 
-start_day############################################################
+############################################################
 ###########################################################
 #### ======================================================
 # function to perform MCS tracking
 def MCStracking(
-    DATA_all,
+    pr_data,
+    bt_data
     times,
     Lon,
     Lat,
-    Variables,
     NCfile
 ):
     """ Function to track MCS from precipitation and brightness temperature
@@ -2205,7 +2205,7 @@ def MCStracking(
     print("        track  precipitation")
 
     PRsmooth = filters.gaussian_filter(
-        DATA_all[:, :, :, Variables.index("PR")], sigma=(0, SmoothSigmaP, SmoothSigmaP)
+        pr_data, sigma=(0, SmoothSigmaP, SmoothSigmaP)
     )
     PRmask = PRsmooth >= Pthreshold * DT
     rgiObjectsPR, nr_objectsUD = ndimage.label(PRmask, structure=obj_structure_3D)
@@ -2260,9 +2260,7 @@ def MCStracking(
 
     grPRs = ObjectCharacteristics(
         PR_objects,  # feature object file
-        DATA_all[
-            :, :, :, Variables.index("PR")
-        ],  # original file used for feature detection
+        pr_data  # original file used for feature detection
         "PR_" + str(start_day.year) + str(start_day.month).zfill(2),
         times,  # timesteps of the data
         Lat,  # 2D latidudes
@@ -2275,7 +2273,7 @@ def MCStracking(
     # --------------------------------------------------------
     print("        track  clouds")
     Csmooth = filters.gaussian_filter(
-        DATA_all[:, :, :, Variables.index("Tb")], sigma=(0, SmoothSigmaC, SmoothSigmaC)
+        bt_data, sigma=(0, SmoothSigmaC, SmoothSigmaC)
     )
     Cmask = Csmooth <= Cthreshold
     rgiObjectsC, nr_objectsUD = ndimage.label(Cmask, structure=obj_structure_3D)
@@ -2308,7 +2306,7 @@ def MCStracking(
     C_objects = np.copy(rgiObjectsC)
     C_objects[:] = 0
     ii = 1
-    for ob in range(len(rgiAreaObj)):
+    for ob,_ in enumerate(rgiAreaObj):
         AreaTest = np.max(
             np.convolve(
                 np.array(rgiAreaObj[ob]) >= MinAreaC * 1000**2,
@@ -2332,9 +2330,7 @@ def MCStracking(
 
     grCs = ObjectCharacteristics(
         C_objects,  # feature object file
-        DATA_all[
-            :, :, :, Variables.index("Tb")
-        ],  # original file used for feature detection
+        bt_data  # original file used for feature detection
         "Clouds_" + str(start_day.year) + str(start_day.month).zfill(2),
         times,  # timesteps of the data
         Lat,  # 2D latidudes
@@ -2357,7 +2353,7 @@ def MCStracking(
             continue
         Cloud_ACT = np.copy(C_objects[Objects[ii]])
         Area_ACT = grid_cell_area[Objects[ii][1], Objects[ii][2]]
-        PR_ACT = DATA_all[:, :, :, Variables.index("PR")][Objects[ii]]
+        PR_ACT = pr_data[Objects[ii]]
 
         PR_Size = np.array(
             [np.sum(Area_ACT[ObjACT[tt, :, :] > 0]) for tt in range(ObjACT.shape[0])]
@@ -2385,7 +2381,7 @@ def MCStracking(
         )
         # min temperatur must be taken over precip area
         CL_ob_pr = C_objects[Objects[ii]]
-        CL_BT_pr = DATA_all[:, :, :, Variables.index("Tb")][Objects[ii]]
+        CL_BT_pr = bt_data[Objects[ii]]
         Cloud_MinT = np.array(
             [
                 np.min(CL_BT_pr[tt, CL_ob_pr[tt, :, :] > 0])
@@ -2430,9 +2426,7 @@ def MCStracking(
     rgiObjectsMCS, nr_objectsUD = ndimage.label(MCS_obj, structure=obj_structure_3D)
     grMCSs = ObjectCharacteristics(
         rgiObjectsMCS,  # feature object file
-        DATA_all[
-            :, :, :, Variables.index("PR")
-        ],  # original file used for feature detection
+        pr_data,  # original file used for feature detection
         "MCS_" + str(start_day.year) + str(start_day.month).zfill(2),
         times,  # timesteps of the data
         Lat,  # 2D latidudes
@@ -2509,10 +2503,10 @@ def MCStracking(
 
     lat[:] = Lat
     lon[:] = Lon
-    PR_real[:] = DATA_all[:, :, :, Variables.index("PR")]
+    PR_real[:] = pr_data
     PR_obj[:] = PR_objects
     MCSs[:] = MCS_obj
-    Cloud_real[:] = DATA_all[:, :, :, Variables.index("Tb")]
+    Cloud_real[:] =bt_data
     Cloud_obj[:] = C_objects
     times[:] = itimes
 

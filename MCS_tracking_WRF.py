@@ -60,12 +60,11 @@ def storm_tracking(pr_finname):
         .isel(time=slice(216, 240))
         .squeeze()
     )
-    rain = xr.open_dataset(f"{pr_finname}").isel(time=slice(216, 240)).squeeze()
+    pr= xr.open_dataset(f"{pr_finname}").isel(time=slice(216, 240)).squeeze()
     # WSPD  = xr.open_dataset(f"{pr_finname.replace('RAIN','WSPD10')}").isel(time=slice(216,240)).squeeze()
 
-    bt = (olr.OLR.values / const.SB_sigma) ** (0.25)
-
-    data_all = np.stack([rain.RAIN.values, bt], axis=3)
+    pr_data = pr.RAIN.values
+    bt_data = (olr.OLR.values / const.SB_sigma) ** (0.25)
 
     lat = rain.lat.values
     lon = rain.lon.values
@@ -91,11 +90,11 @@ def storm_tracking(pr_finname):
 
     fileout = pr_finname.replace("RAIN", "Storms")
     _,_ = MCStracking(
-        data_all,
+        pr_data,
+        bt_data,
         times,
         lon,
         lat,
-        cfg.Variables,
         NCfile          =   fileout,
     )
 
