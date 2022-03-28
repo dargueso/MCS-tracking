@@ -23,11 +23,12 @@ import netCDF4 as nc
 import h5py
 import pandas as pd
 
-import scipy.ndimage.filters as filters
-import scipy.ndimage.morphology as morphology
+from scipy.ndimage import filters
+from scipy.ndimage import morphology
 from scipy.spatial import ConvexHull,qhull
 from scipy import ndimage
 
+from metpy import calc,units
 
 
 from tqdm import tqdm
@@ -50,7 +51,7 @@ def ObjectCharacteristics(
     # ========
 
     nr_objectsUD = PR_objectsFull.max()
-    rgiObjectsUDFull = PR_objectsFull
+
     if nr_objectsUD >= 1:
         grObject = {}
         print("            Loop over " + str(PR_objectsFull.max()) + " objects")
@@ -63,7 +64,7 @@ def ObjectCharacteristics(
                 Objects = ndimage.find_objects(PR_object)
                 if len(Objects) > 1:
                     Objects = [
-                        Objects[np.where(np.array(Objects, dtype=object) != None)[0][0]]
+                        Objects[np.where(np.array(Objects, dtype=object) !=  None)[0][0]]
                     ]
 
                 ObjAct = PR_object[Objects[0]]
@@ -94,9 +95,8 @@ def ObjectCharacteristics(
                 TrackAll = np.zeros((len(rgrMassCent), 2))
                 TrackAll[:] = np.nan
                 try:
-                    FIN = ~np.isnan(rgrMassCent[:, 0])
-                    for ii in range(len(rgrMassCent)):
-                        if ~np.isnan(rgrMassCent[ii, 0]) == True:
+                    for ii,_ in enumerate(rgrMassCent):
+                        if ~np.isnan(rgrMassCent[ii, 0]) is True:
                             TrackAll[ii, 1] = LatAct[
                                 int(np.round(rgrMassCent[ii][0], 0)),
                                 int(np.round(rgrMassCent[ii][1], 0)),
@@ -136,8 +136,10 @@ def ObjectCharacteristics(
                 except:
                     stop()
                     continue
-        if SaveFile != None:
-            pickle.dump(grObject, open(SaveFile, "wb"))
+        if SaveFile is not None:
+            with open('SaveFile', 'wb') as handle:
+                pickle.dump(grObject, handle)
+
         return grObject
 
 
@@ -245,8 +247,6 @@ def Feature_Calculation(
     Fstar = PV * Tgrad
 
     Tgrad_zero = 0.45  # *100/(np.mean([dLon,dLat], axis=0)/1000.)  # 0.45 K/(100 km)
-    import metpy.calc as calc
-    from metpy.units import units
 
     CoriolisPar = calc.coriolis_parameter(np.deg2rad(Lat))
     Frontal_Diagnostic = np.array(Fstar / (CoriolisPar * Tgrad_zero))
