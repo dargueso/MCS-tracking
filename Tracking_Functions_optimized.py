@@ -87,7 +87,8 @@ def haversine(lat1, lon1, lat2, lon2):
     # haversine formula
     dlon = lon2 - lon1
     dlat = lat2 - lat1
-    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+    a = np.sin(dlat / 2) ** 2 + \
+    np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
     c = 2 * np.arcsin(np.sqrt(a))
     # Radius of earth in kilometers is 6371
     dist_m = c * const.earth_radius
@@ -114,32 +115,32 @@ def ObjectCharacteristics(
 
     # ========
 
-    nr_objectsUD = PR_objectsFull.max()
+    num_objects = PR_objectsFull.max()
 
-    if nr_objectsUD >= 1:
+    if num_objects >= 1:
         grObject = {}
         print("            Loop over " + str(PR_objectsFull.max()) + " objects")
         for ob in range(int(PR_objectsFull.max())):
 
             TT = np.sum((PR_objectsFull == (ob + 1)), axis=(1, 2)) > 0
             if sum(TT) >= MinTime:
-                PR_object = np.copy(PR_objectsFull[TT, :, :])
-                PR_object[PR_object != (ob + 1)] = 0
-                Objects = ndimage.find_objects(PR_object)
-                if len(Objects) > 1:
-                    Objects = [
-                        Objects[np.where(np.array(Objects, dtype=object) !=  None)[0][0]]
+                pr_object = np.copy(PR_objectsFull[TT, :, :])
+                pr_object[pr_object != (ob + 1)] = 0
+                object_indices = ndimage.find_objects(pr_object)
+                if len(object_indices) > 1:
+                    object_indices = [
+                        object_indices[np.where(np.array(object_indices, dtype=object) !=  None)[0][0]]
                     ]
 
-                ObjAct = PR_object[Objects[0]]
-                ValAct = PR_orig[TT, :, :][Objects[0]]
+                ObjAct = pr_object[object_indices[0]]
+                ValAct = PR_orig[TT, :, :][object_indices[0]]
                 ValAct[ObjAct == 0] = np.nan
                 AreaAct = np.repeat(
-                    grid_cell_area[Objects[0][1:]][None, :, :], ValAct.shape[0], axis=0
+                    grid_cell_area[object_indices[0][1:]][None, :, :], ValAct.shape[0], axis=0
                 )
                 AreaAct[ObjAct == 0] = np.nan
-                LatAct = np.copy(Lat[Objects[0][1:]])
-                LonAct = np.copy(Lon[Objects[0][1:]])
+                LatAct = np.copy(Lat[object_indices[0][1:]])
+                LonAct = np.copy(Lon[object_indices[0][1:]])
 
                 # calculate statistics
                 TimeAct = TIME[TT]
@@ -270,8 +271,11 @@ def detect_local_minima(arr):
 # ==============================================================
 # ==============================================================
 def Feature_Calculation(
-    DATA_all,  # np array that contains [time,lat,lon,Variables] with vars
-    Variables,  # Variables beeing ['V', 'U', 'T', 'Q', 'SLP']
+    v_data,
+    u_data,
+    t_data,
+    q_data,
+    slp_data,
     dx,  # distance between longitude cells
     dy,  # distance between latitude cells
     Lat,  # Latitude coordinates
@@ -283,13 +287,13 @@ def Feature_Calculation(
     # calculate vapor transport on pressure level
     VapTrans = (
         (
-            DATA_all[:, :, :, Variables.index("U")]
-            * DATA_all[:, :, :, Variables.index("Q")]
+            u_data
+            * q_data
         )
         ** 2
         + (
-            DATA_all[:, :, :, Variables.index("V")]
-            * DATA_all[:, :, :, Variables.index("Q")]
+            v_data
+            * q_data
         )
         ** 2
     ) ** (1 / 2)
@@ -297,12 +301,12 @@ def Feature_Calculation(
     # 22222222222222222222222222222222222222222222222222
     # Frontal Detection according to
     # https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2017GL073662
-    UU = DATA_all[:, :, :, Variables.index("U")]
-    VV = DATA_all[:, :, :, Variables.index("V")]
+    UU = u_data
+    VV = v_data
     du = np.gradient(UU)
     dv = np.gradient(VV)
     PV = np.abs(dv[-1] / dx[None, :] - du[-2] / dy[None, :])
-    TK = DATA_all[:, :, :, Variables.index("T")]
+    TK = t_data
     vgrad = np.gradient(TK, axis=(1, 2))
     Tgrad = np.sqrt(vgrad[0] ** 2 + vgrad[1] ** 2)
 
@@ -316,7 +320,7 @@ def Feature_Calculation(
     # # 3333333333333333333333333333333333333333333333333333
     # # Cyclone identification based on pressure annomaly threshold
 
-    SLP = DATA_all[:, :, :, Variables.index("SLP")] / 100.0
+    SLP = slp_data / 100.0
     # remove high-frequency variabilities --> smooth over 100 x 100 km (no temporal smoothing)
     SLP_smooth = ndimage.uniform_filter(
         SLP,
@@ -562,10 +566,10 @@ def ReadERA5(
     return DataAll, Lat, Lon
 
 
-def ConnectLon(Objects):
-    for tt in range(Objects.shape[0]):
+def ConnectLon(object_indices):
+    for tt in range(object_indices.shape[0]):
         EDGE = np.append(
-            Objects[tt, :, -1][:, None], Objects[tt, :, 0][:, None], axis=1
+            object_indices[tt, :, -1][:, None], object_indices[tt, :, 0][:, None], axis=1
         )
         iEDGE = np.sum(EDGE > 0, axis=1) == 2
         OBJ_Left = EDGE[iEDGE, 0]
@@ -583,8 +587,8 @@ def ConnectLon(Objects):
         for ob,_ in enumerate(OBJ_unique):
             ObE = int(OBJ_unique[ob].split("_")[1])
             ObW = int(OBJ_unique[ob].split("_")[0])
-            Objects[Objects == ObE] = ObW
-    return Objects
+            object_indices[object_indices == ObE] = ObW
+    return object_indices
 
 
 def ConnectLonOld(rgiObjectsAR):
@@ -611,7 +615,7 @@ def BreakupObjects(
     dT,
 ):  # time step in hours
 
-    Objects = ndimage.find_objects(DATA)
+    object_indices = ndimage.find_objects(DATA)
     MaxOb = np.max(DATA)
     MinLif = int(24 / dT)  # min livetime of object to be split
     AVmax = 1.5
@@ -621,7 +625,7 @@ def BreakupObjects(
     rgiObjects2D, nr_objects2D = ndimage.label(DATA, structure=obj_structure_2D)
 
     rgiObjNrs = np.unique(DATA)[1:]
-    TT = np.array([Objects[ob][0].stop - Objects[ob][0].start for ob in range(MaxOb)])
+    TT = np.array([object_indices[ob][0].stop - object_indices[ob][0].start for ob in range(MaxOb)])
     # Sel_Obj = rgiObjNrs[TT > MinLif]
 
     # Average 2D objects in 3D objects?
@@ -633,9 +637,9 @@ def BreakupObjects(
         #             # ignore short lived objects
         #             continue
         SelOb = rgiObjNrs[ob] - 1
-        DATA_ACT = np.copy(DATA[Objects[SelOb]])
+        DATA_ACT = np.copy(DATA[object_indices[SelOb]])
         iOb = rgiObjNrs[ob]
-        rgiObjects2D_ACT = np.copy(rgiObjects2D[Objects[SelOb]])
+        rgiObjects2D_ACT = np.copy(rgiObjects2D[object_indices[SelOb]])
         rgiObjects2D_ACT[DATA_ACT != iOb] = 0
 
         Av_2Dob[ob] = np.mean(
@@ -707,22 +711,22 @@ def BreakupObjects(
             MaxOb = np.max(DATA)
 
             # save the new objects to the original object array
-            TMP = np.copy(DATA[Objects[SelOb]])
+            TMP = np.copy(DATA[object_indices[SelOb]])
             TMP[rgiObjects2D_ACT != 0] = rgiObjects2D_ACT[rgiObjects2D_ACT != 0]
-            DATA[Objects[SelOb]] = np.copy(TMP)
+            DATA[object_indices[SelOb]] = np.copy(TMP)
 
     # clean up object matrix
     Unique = np.unique(DATA)[1:]
-    Objects = ndimage.find_objects(DATA)
+    object_indices = ndimage.find_objects(DATA)
     rgiVolObj = np.array(
         [
-            np.sum(DATA[Objects[Unique[ob] - 1]] == Unique[ob])
+            np.sum(DATA[object_indices[Unique[ob] - 1]] == Unique[ob])
             for ob,_ in enumerate(Unique)
         ]
     )
     TT = np.array(
         [
-            Objects[Unique[ob] - 1][0].stop - Objects[Unique[ob] - 1][0].start
+            object_indices[Unique[ob] - 1][0].stop - object_indices[Unique[ob] - 1][0].start
             for ob,_ in enumerate(Unique)
         ]
     )
@@ -845,10 +849,15 @@ def minimum_bounding_rectangle(points):
 
 
 def MultiObjectIdentification(
-    DATA_all,  # matrix with data on common grid in the format [time,lat,lon,variable]
-    # the variables are 'V850' [m/s], 'U850' [m/s], 'T850' K, 'Q850' g/kg,
-    # 'SLP' [Pa], 'IVTE' [kg m-1 s-1], 'IVTN' [kg m-1 s-1], 'PR' [mm/time], 'BT' [K]]
-    # this order must be followed
+    v850_data, # 'V850' [m/s]  All variables in format [time,lat,lon
+    u850_data, # 'U850' [m/s]
+    t850_data, # 'T850' K, 'Q850' g/kg,
+    q850_data, # 'Q850' g/kg,
+    slp_data ,  # 'SLP' [Pa],
+    ivte_data, # 'IVTE' [kg m-1 s-1],
+    ivtn_data, # 'IVTN' [kg m-1 s-1],
+    pr_data  ,  # 'PR' [mm/time],
+    bt_data  ,  # 'BT' [K]]
     Lon,  # 2D longitude grid centers
     Lat,  # 2D latitude grid spacing
     times,  # datetime vector of data
@@ -856,8 +865,8 @@ def MultiObjectIdentification(
     Mask,  # mask with dimensions [lat,lon] defining analysis region
     DataName="",  # name of the common grid
     OutputFolder="",  # string containing the output directory path. Default is local directory
-    SmoothSigmaP=0,  # Gaussion std for precipitation smoothing
-    Pthreshold=2,  # precipitation threshold [mm/h]
+    smooth_sigma_pr=0,  # Gaussion std for precipitation smoothing
+    thres_pr=2,  # precipitation threshold [mm/h]
     MinTimePR=6,  # minimum lifetime of precip. features in hours
     MinAreaPR=5000,  # minimum area of precipitation features [km2]
     # minimum Moisture Stream
@@ -911,9 +920,9 @@ def MultiObjectIdentification(
         "dt-"
         + str(dT)
         + "h_PRTr-"
-        + str(Pthreshold)
+        + str(thres_pr)
         + "_PRS-"
-        + str(SmoothSigmaP)
+        + str(smooth_sigma_pr)
         + "_ARt-"
         + str(MinTimeIVT)
         + "_ARL-"
@@ -949,10 +958,9 @@ def MultiObjectIdentification(
     FrontMask[np.abs(Lat) < 10] = 0
 
     # connect over date line?
-    if (Lon[0, 0] < 176) & (Lon[0, -1] > 176):
-        connectLon = 1
-    else:
-        connectLon = 0
+    crosses_dateline = False
+    if (Lon[0, 0] < -176) & (Lon[0, -1] > 176): crosses_dateline = True
+
 
     print("    Derive nescessary varialbes for feature indentification")
     import time
@@ -962,13 +970,13 @@ def MultiObjectIdentification(
     # calculate vapor transport on pressure level
     VapTrans = (
         (
-            DATA_all[:, :, :, Variables.index("U")]
-            * DATA_all[:, :, :, Variables.index("Q")]
+            u_data
+            * q_data
         )
         ** 2
         + (
-            DATA_all[:, :, :, Variables.index("V")]
-            * DATA_all[:, :, :, Variables.index("Q")]
+            v_data
+            * q_data
         )
         ** 2
     ) ** (1 / 2)
@@ -976,12 +984,12 @@ def MultiObjectIdentification(
     # 22222222222222222222222222222222222222222222222222
     # Frontal Detection according
     # to https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2017GL073662
-    UU = DATA_all[:, :, :, Variables.index("U")]
-    VV = DATA_all[:, :, :, Variables.index("V")]
+    UU = u_data
+    VV = v_data
     du = np.gradient(UU)
     dv = np.gradient(VV)
     PV = np.abs(dv[-1] / dx[None, :] - du[-2] / dy[None, :])
-    TK = DATA_all[:, :, :, Variables.index("T")]
+    TK = t_data
     vgrad = np.gradient(TK, axis=(1, 2))
     Tgrad = np.sqrt(vgrad[0] ** 2 + vgrad[1] ** 2)
 
@@ -996,7 +1004,7 @@ def MultiObjectIdentification(
     # # 3333333333333333333333333333333333333333333333333333
     # # Cyclone identification based on pressure annomaly threshold
 
-    SLP = DATA_all[:, :, :, Variables.index("SLP")] / 100.0
+    SLP = slp_data / 100.0
     if np.sum(np.isnan(SLP)) == 0:
         # remove high-frequency variabilities --> smooth over 100 x 100 km (no temporal smoothing)
         SLP_smooth = ndimage.uniform_filter(
@@ -1087,12 +1095,21 @@ def MultiObjectIdentification(
     # 4444444444444444444444444444444444444444444444444444444
     # calculate IVT
     IVT = (
-        (DATA_all[:, :, :, Variables.index("IVTE")]) ** 2
-        + np.abs(DATA_all[:, :, :, Variables.index("IVTN")]) ** 2
+        (ivte_data) ** 2
+        + np.abs(ivtn_data) ** 2
     ) ** 0.5
 
     # Mask data outside of Focus domain
-    DATA_all[:, Mask == 0, :] = np.nan
+
+    v850_data[:, Mask == 0] = np.nan
+    u850_data[:, Mask == 0] = np.nan
+    t850_data[:, Mask == 0] = np.nan
+    q850_data[:, Mask == 0] = np.nan
+    slp_data[:, Mask == 0] = np.nan
+    ivte_data[:, Mask == 0] = np.nan
+    ivtn_data[:, Mask == 0] = np.nan
+    pr_data [:, Mask == 0] = np.nan,
+    bt_data[:, Mask == 0] = np.nan
     Pressure_anomaly[:, Mask == 0] = np.nan
     HighPressure_annomaly[:, Mask == 0] = np.nan
     Frontal_Diagnostic[:, Mask == 0] = np.nan
@@ -1106,21 +1123,21 @@ def MultiObjectIdentification(
     #### ------------------------
     print("        track  moisture streams in extratropics")
     potARs = VapTrans > MinMSthreshold
-    rgiObjectsAR, nr_objectsUD = ndimage.label(potARs, structure=obj_structure_3D)
-    print("            " + str(nr_objectsUD) + " object found")
+    rgiObjectsAR, num_objects = ndimage.label(potARs, structure=obj_structure_3D)
+    print("            " + str(num_objects) + " object found")
 
     # sort the objects according to their size
-    Objects = ndimage.find_objects(rgiObjectsAR)
+    object_indices = ndimage.find_objects(rgiObjectsAR)
 
     rgiAreaObj = np.array(
         [
             [
                 np.sum(
-                    grid_cell_area[Objects[ob][1:]][rgiObjectsAR[Objects[ob]][tt, :, :] == ob + 1]
+                    grid_cell_area[object_indices[ob][1:]][rgiObjectsAR[object_indices[ob]][tt, :, :] == ob + 1]
                 )
-                for tt in range(rgiObjectsAR[Objects[ob]].shape[0])
+                for tt in range(rgiObjectsAR[object_indices[ob]].shape[0])
             ]
-            for ob in range(nr_objectsUD)
+            for ob in range(num_objects)
         ]
     )
 
@@ -1153,7 +1170,7 @@ def MultiObjectIdentification(
     print("        break up long living MS objects that have many elements")
     MS_objects = BreakupObjects(MS_objects, int(MinTimeMS / dT), dT)
 
-    if connectLon == 1:
+    if crosses_dateline is True:
         print("        connect MS objects over date line")
         MS_objects = ConnectLon(MS_objects)
 
@@ -1180,14 +1197,14 @@ def MultiObjectIdentification(
     start = time.perf_counter()
 
     potIVTs = IVT > IVTtrheshold
-    rgiObjectsIVT, nr_objectsUD = ndimage.label(potIVTs, structure=obj_structure_3D)
-    print("        " + str(nr_objectsUD) + " object found")
+    rgiObjectsIVT, num_objects = ndimage.label(potIVTs, structure=obj_structure_3D)
+    print("        " + str(num_objects) + " object found")
 
     # sort the objects according to their size
-    Objects = ndimage.find_objects(rgiObjectsIVT)
-    # rgiVolObj=np.array([np.sum(rgiObjectsIVT[Objects[ob]] == ob+1) for ob in range(nr_objectsUD)])
+    object_indices = ndimage.find_objects(rgiObjectsIVT)
+    # rgiVolObj=np.array([np.sum(rgiObjectsIVT[object_indices[ob]] == ob+1) for ob in range(num_objects)])
     TT_CY = np.array(
-        [Objects[ob][0].stop - Objects[ob][0].start for ob in range(nr_objectsUD)]
+        [object_indices[ob][0].stop - object_indices[ob][0].start for ob in range(num_objects)]
     )
 
     # create final object array
@@ -1210,7 +1227,7 @@ def MultiObjectIdentification(
     print("        break up long living IVT objects that have many elements")
     IVT_objects = BreakupObjects(IVT_objects, int(MinTimeIVT / dT), dT)
 
-    if connectLon == 1:
+    if crosses_dateline is True:
         print("        connect IVT objects over date line")
         IVT_objects = ConnectLon(IVT_objects)
 
@@ -1239,19 +1256,19 @@ def MultiObjectIdentification(
     if IVT_objects.max() != 0:
         AR_obj = np.copy(IVT_objects)
         AR_obj[:] = 0.0
-        Objects = ndimage.find_objects(IVT_objects.astype(int))
+        object_indices = ndimage.find_objects(IVT_objects)
     else:
         AR_obj = np.copy(MS_objects)
         AR_obj[:] = 0.0
-        Objects = ndimage.find_objects(MS_objects.astype(int))
+        object_indices = ndimage.find_objects(MS_objects)
         IVT_objects = MS_objects
     aa = 1
-    for ii,_ in enumerate(Objects):
-        if Objects[ii] == None:
+    for ii,_ in enumerate(object_indices):
+        if object_indices[ii] == None:
             continue
-        ObjACT = IVT_objects[Objects[ii]] == ii + 1
-        LonObj = Lon[Objects[ii][1], Objects[ii][2]]
-        LatObj = Lat[Objects[ii][1], Objects[ii][2]]
+        ObjACT = IVT_objects[object_indices[ii]] == ii + 1
+        LonObj = Lon[object_indices[ii][1], object_indices[ii][2]]
+        LatObj = Lat[object_indices[ii][1], object_indices[ii][2]]
         # check if object crosses the date line
         if LonObj.max() - LonObj.min() > 359:
             ObjACT = np.roll(ObjACT, int(ObjACT.shape[2] / 2), axis=2)
@@ -1299,8 +1316,8 @@ def MultiObjectIdentification(
             ObjACT = np.roll(ObjACT, -int(ObjACT.shape[2] / 2), axis=2)
         ObjACT = ObjACT.astype(int)
         ObjACT[ObjACT != 0] = aa
-        ObjACT = ObjACT + AR_obj[Objects[ii]]
-        AR_obj[Objects[ii]] = ObjACT
+        ObjACT = ObjACT + AR_obj[object_indices[ii]]
+        AR_obj[object_indices[ii]] = ObjACT
         aa = aa + 1
 
     end = time.perf_counter()
@@ -1316,18 +1333,18 @@ def MultiObjectIdentification(
     start = time.perf_counter()
     # Pressure_anomaly[np.isnan(Pressure_anomaly)] = 0
     Pressure_anomaly[:, Mask == 0] = 0
-    rgiObjectsUD, nr_objectsUD = ndimage.label(
+    rgiObjectsUD, num_objects = ndimage.label(
         Pressure_anomaly, structure=obj_structure_3D
     )
-    print("        " + str(nr_objectsUD) + " object found")
+    print("        " + str(num_objects) + " object found")
 
     # sort the objects according to their size
-    Objects = ndimage.find_objects(rgiObjectsUD)
+    object_indices = ndimage.find_objects(rgiObjectsUD)
     rgiVolObj = np.array(
-        [np.sum(rgiObjectsUD[Objects[ob]] == ob + 1) for ob in range(nr_objectsUD)]
+        [np.sum(rgiObjectsUD[object_indices[ob]] == ob + 1) for ob in range(num_objects)]
     )
     TT_CY = np.array(
-        [Objects[ob][0].stop - Objects[ob][0].start for ob in range(nr_objectsUD)]
+        [object_indices[ob][0].stop - object_indices[ob][0].start for ob in range(num_objects)]
     )
 
     # create final object array
@@ -1351,7 +1368,7 @@ def MultiObjectIdentification(
     print("        break up long living CY objects that have many elements")
     CY_objects = BreakupObjects(CY_objects, int(MinTimeCY / dT), dT)
 
-    if connectLon == 1:
+    if crosses_dateline is True:
         print("        connect cyclones objects over date line")
         CY_objects = ConnectLon(CY_objects)
 
@@ -1384,18 +1401,18 @@ def MultiObjectIdentification(
     print("    track anti-cyclones")
     start = time.perf_counter()
     HighPressure_annomaly[:, Mask == 0] = 0
-    rgiObjectsUD, nr_objectsUD = ndimage.label(
+    rgiObjectsUD, num_objects = ndimage.label(
         HighPressure_annomaly, structure=obj_structure_3D
     )
-    print("        " + str(nr_objectsUD) + " object found")
+    print("        " + str(num_objects) + " object found")
 
     # sort the objects according to their size
-    Objects = ndimage.find_objects(rgiObjectsUD)
+    object_indices = ndimage.find_objects(rgiObjectsUD)
     rgiVolObj = np.array(
-        [np.sum(rgiObjectsUD[Objects[ob]] == ob + 1) for ob in range(nr_objectsUD)]
+        [np.sum(rgiObjectsUD[object_indices[ob]] == ob + 1) for ob in range(num_objects)]
     )
     TT_ACY = np.array(
-        [Objects[ob][0].stop - Objects[ob][0].start for ob in range(nr_objectsUD)]
+        [object_indices[ob][0].stop - object_indices[ob][0].start for ob in range(num_objects)]
     )
 
     # create final object array
@@ -1419,7 +1436,7 @@ def MultiObjectIdentification(
 
     print("        break up long living ACY objects that have many elements")
     ACY_objects = BreakupObjects(ACY_objects, int(MinTimeCY / dT), dT)
-    if connectLon == 1:
+    if crosses_dateline is True:
         # connect objects over date line
         ACY_objects = ConnectLon(ACY_objects)
 
@@ -1455,19 +1472,19 @@ def MultiObjectIdentification(
     Frontal_Diagnostic[:, FrontMask == 0] = 0
     Fmask = Frontal_Diagnostic > 1
 
-    rgiObjectsUD, nr_objectsUD = ndimage.label(Fmask, structure=obj_structure_2D)
-    print("        " + str(nr_objectsUD) + " object found")
+    rgiObjectsUD, num_objects = ndimage.label(Fmask, structure=obj_structure_2D)
+    print("        " + str(num_objects) + " object found")
 
     # # calculate object size
-    Objects = ndimage.find_objects(rgiObjectsUD)
+    object_indices = ndimage.find_objects(rgiObjectsUD)
     rgiAreaObj = np.array(
         [
-            np.sum(grid_cell_area[Objects[ob][1:]][rgiObjectsUD[Objects[ob]][0, :, :] == ob + 1])
-            for ob in range(nr_objectsUD)
+            np.sum(grid_cell_area[object_indices[ob][1:]][rgiObjectsUD[object_indices[ob]][0, :, :] == ob + 1])
+            for ob in range(num_objects)
         ]
     )
 
-    # rgiAreaObj=np.array([np.sum(rgiObjectsUD[Objects[ob]] == ob+1) for ob in range(nr_objectsUD)])
+    # rgiAreaObj=np.array([np.sum(rgiObjectsUD[object_indices[ob]] == ob+1) for ob in range(num_objects)])
     # create final object array
     FR_objects = np.copy(rgiObjectsUD)
     TooSmall = np.where(rgiAreaObj < MinAreaFR * 1000**2)
@@ -1485,46 +1502,45 @@ def MultiObjectIdentification(
     # ------------------------
     print("    track  precipitation")
     start = time.perf_counter()
-    PRsmooth = filters.gaussian_filter(
-        DATA_all[:, :, :, Variables.index("PR")], sigma=(0, SmoothSigmaP, SmoothSigmaP)
+    pr_smooth = filters.gaussian_filter(
+        pr_data, sigma=(0, smooth_sigma_pr, smooth_sigma_pr)
     )
-    PRmask = PRsmooth >= Pthreshold * dT
-    rgiObjectsPR, nr_objectsUD = ndimage.label(PRmask, structure=obj_structure_3D)
-    print("        " + str(nr_objectsUD) + " precipitation object found")
+    pr_mask = pr_smooth >= thres_pr * dT
+    objects_id_pr, num_objects = ndimage.label(pr_mask, structure=obj_structure_3D)
+    print("        " + str(num_objects) + " precipitation object found")
 
-    if connectLon == 1:
+    if crosses_dateline is True:
         # connect objects over date line
-        rgiObjectsPR = ConnectLon(rgiObjectsPR)
+        objects_id_pr = ConnectLon(objects_id_pr)
 
     # remove None objects
-    Objects = ndimage.find_objects(rgiObjectsPR)
+    object_indices = ndimage.find_objects(objects_id_pr)
     rgiVolObj = np.array(
-        [np.sum(rgiObjectsPR[Objects[ob]] == ob + 1) for ob in range(nr_objectsUD)]
+        [np.sum(objects_id_pr[object_indices[ob]] == ob + 1) for ob in range(num_objects)]
     )
     ZERO_V = np.where(rgiVolObj == 0)
     if len(ZERO_V[0]) > 0:
         Dummy = [slice(0, 1, None), slice(0, 1, None), slice(0, 1, None)]
-        Objects = np.array(Objects)
+        object_indices = np.array(object_indices)
         for jj in ZERO_V[0]:
-            Objects[jj] = Dummy
+            object_indices[jj] = Dummy
 
     # Remove objects that are too small or short lived
     rgiAreaObj = np.array(
         [
             [
                 np.sum(
-                    grid_cell_area[Objects[ob][1], Objects[ob][2]][
-                        rgiObjectsPR[Objects[ob]][tt, :, :] == ob + 1
+                    grid_cell_area[object_indices[ob][1], object_indices[ob][2]][
+                        objects_id_pr[object_indices[ob]][tt, :, :] == ob + 1
                     ]
                 )
-                for tt in range(rgiObjectsPR[Objects[ob]].shape[0])
+                for tt in range(objects_id_pr[object_indices[ob]].shape[0])
             ]
-            for ob in range(nr_objectsUD)
+            for ob in range(num_objects)
         ]
     )
     # create final object array
-    PR_objects = np.copy(rgiObjectsPR)
-    PR_objects[:] = 0
+    pr_objects = np.zeros(objects_id_pr.shape,dtype=int)
     ii = 1
     for ob,_ in enumerate(rgiAreaObj):
         AreaTest = np.max(
@@ -1537,18 +1553,16 @@ def MultiObjectIdentification(
         if (AreaTest == int(MinTimePR / dT)) & (
             len(rgiAreaObj[ob]) >= int(MinTimePR / dT)
         ):
-            PR_objects[rgiObjectsPR == (ob + 1)] = ii
+            pr_objects[objects_id_pr == (ob + 1)] = ii
             ii = ii + 1
 
-    if connectLon == 1:
+    if crosses_dateline is True:
         print("        connect precipitation objects over date line")
-        PR_objects = ConnectLon(PR_objects)
+        pr_objects = ConnectLon(pr_objects)
 
     grPRs = ObjectCharacteristics(
-        PR_objects,  # feature object file
-        DATA_all[
-            :, :, :, Variables.index("PR")
-        ],  # original file used for feature detection
+        pr_objects,  # feature object file
+        pr_data,  # original file used for feature detection
         OutputFolder
         + "PR_"
         + str(start_day.year)
@@ -1570,35 +1584,35 @@ def MultiObjectIdentification(
     print("    track  clouds")
     start = time.perf_counter()
     Csmooth = filters.gaussian_filter(
-        DATA_all[:, :, :, Variables.index("BT")], sigma=(0, SmoothSigmaC, SmoothSigmaC)
+        bt_data, sigma=(0, SmoothSigmaC, SmoothSigmaC)
     )
     Cmask = Csmooth <= Cthreshold
-    rgiObjectsC, nr_objectsUD = ndimage.label(Cmask, structure=obj_structure_3D)
-    print("        " + str(nr_objectsUD) + " cloud object found")
+    rgiObjectsC, num_objects = ndimage.label(Cmask, structure=obj_structure_3D)
+    print("        " + str(num_objects) + " cloud object found")
 
-    if connectLon == 1:
+    if crosses_dateline is True:
         # connect objects over date line
         rgiObjectsC = ConnectLon(rgiObjectsC)
 
     # minimum cloud volume
     # sort the objects according to their size
-    Objects = ndimage.find_objects(rgiObjectsC)
+    object_indices = ndimage.find_objects(rgiObjectsC)
 
     rgiAreaObj = np.array(
         [
             [
                 np.sum(
-                    grid_cell_area[Objects[ob][1], Objects[ob][2]][
-                        rgiObjectsC[Objects[ob]][tt, :, :] == ob + 1
+                    grid_cell_area[object_indices[ob][1], object_indices[ob][2]][
+                        rgiObjectsC[object_indices[ob]][tt, :, :] == ob + 1
                     ]
                 )
-                for tt in range(rgiObjectsC[Objects[ob]].shape[0])
+                for tt in range(rgiObjectsC[object_indices[ob]].shape[0])
             ]
-            for ob in range(nr_objectsUD)
+            for ob in range(num_objects)
         ]
     )
 
-    # rgiVolObjC=np.array([np.sum(rgiObjectsC[Objects[ob]] == ob+1) for ob in range(nr_objectsUD)])
+    # rgiVolObjC=np.array([np.sum(rgiObjectsC[object_indices[ob]] == ob+1) for ob in range(num_objects)])
 
     # create final object array
     C_objects = np.copy(rgiObjectsC)
@@ -1622,15 +1636,13 @@ def MultiObjectIdentification(
     print("        break up long living cloud shield objects that have many elements")
     C_objects = BreakupObjects(C_objects, int(MinTimeC / dT), dT)
 
-    if connectLon == 1:
+    if crosses_dateline is True:
         print("        connect cloud objects over date line")
         C_objects = ConnectLon(C_objects)
 
     grCs = ObjectCharacteristics(
         C_objects,  # feature object file
-        DATA_all[
-            :, :, :, Variables.index("BT")
-        ],  # original file used for feature detection
+        bt_data,  # original file used for feature detection
         OutputFolder
         + "Clouds_"
         + str(start_day.year)
@@ -1652,20 +1664,19 @@ def MultiObjectIdentification(
     print("    check if pr objects quallify as MCS")
     start = time.perf_counter()
     # check if precipitation object is from an MCS
-    Objects = ndimage.find_objects(PR_objects.astype(int))
-    MCS_obj = np.copy(PR_objects)
-    MCS_obj[:] = 0
-    for ii,_ in enumerate(Objects):
-        if Objects[ii] == None:
+    object_indices = ndimage.find_objects(pr_objects)
+    MCS_obj = np.zeros(pr_objects.shape,dtype=int)
+    for ii,_ in enumerate(object_indices):
+        if object_indices[ii] == None:
             continue
-        ObjACT = PR_objects[Objects[ii]] == ii + 1
+        ObjACT = pr_objects[object_indices[ii]] == ii + 1
         if ObjACT.shape[0] < 2:
             continue
-        Cloud_ACT = np.copy(C_objects[Objects[ii]])
-        LonObj = Lon[Objects[ii][1], Objects[ii][2]]
-        LatObj = Lat[Objects[ii][1], Objects[ii][2]]
-        Area_ACT = grid_cell_area[Objects[ii][1], Objects[ii][2]]
-        PR_ACT = DATA_all[:, :, :, Variables.index("PR")][Objects[ii]]
+        Cloud_ACT = np.copy(C_objects[object_indices[ii]])
+        LonObj = Lon[object_indices[ii][1], object_indices[ii][2]]
+        LatObj = Lat[object_indices[ii][1], object_indices[ii][2]]
+        Area_ACT = grid_cell_area[object_indices[ii][1], object_indices[ii][2]]
+        PR_ACT = pr_data[object_indices[ii]]
 
         PR_Size = np.array(
             [np.sum(Area_ACT[ObjACT[tt, :, :] > 0]) for tt in range(ObjACT.shape[0])]
@@ -1683,8 +1694,8 @@ def MultiObjectIdentification(
         if len(rgiCL_obj) == 0:
             # no deep cloud shield is over the precipitation
             continue
-        CL_OB_TMP = C_objects[Objects[ii][0]]
-        CL_TMP = DATA_all[:, :, :, Variables.index("BT")][Objects[ii][0]]
+        CL_OB_TMP = C_objects[object_indices[ii][0]]
+        CL_TMP = bt_data[object_indices[ii][0]]
         CLOUD_obj_act = np.in1d(CL_OB_TMP.flatten(), rgiCL_obj).reshape(CL_OB_TMP.shape)
         Cloud_Size = np.array(
             [
@@ -1693,8 +1704,8 @@ def MultiObjectIdentification(
             ]
         )
         # min temperatur must be taken over precip area
-        CL_ob_pr = C_objects[Objects[ii]]
-        CL_BT_pr = DATA_all[:, :, :, Variables.index("BT")][Objects[ii]]
+        CL_ob_pr = C_objects[object_indices[ii]]
+        CL_BT_pr = bt_data[object_indices[ii]]
         Cloud_MinT = np.array(
             [
                 np.min(CL_BT_pr[tt, CL_ob_pr[tt, :, :] > 0])
@@ -1704,7 +1715,7 @@ def MultiObjectIdentification(
             ]
         )
         # is precipitation associated with AR?
-        AR_ob = np.copy(AR_obj[Objects[ii]])
+        AR_ob = np.copy(AR_obj[object_indices[ii]])
         AR_ob[:, LatObj < 25] = 0  # only consider ARs in mid- and hight latitudes
         AR_test = np.sum(AR_ob > 0, axis=(1, 2))
 
@@ -1730,9 +1741,9 @@ def MultiObjectIdentification(
             np.convolve(MCS_TEST, np.ones(window_length), "valid") / window_length
         )
         if np.max(moving_averages) == 1:
-            TMP = np.copy(MCS_obj[Objects[ii]])
+            TMP = np.copy(MCS_obj[object_indices[ii]])
             TMP = TMP + ObjACT
-            MCS_obj[Objects[ii]] = TMP
+            MCS_obj[object_indices[ii]] = TMP
         else:
             continue
     end = time.perf_counter()
@@ -1750,19 +1761,19 @@ def MultiObjectIdentification(
     TC_Time = {}
     aa = 1
     # check if cyclone is tropical
-    Objects = ndimage.find_objects(CY_objects.astype(int))
+    object_indices = ndimage.find_objects(CY_objects)
     TC_obj = np.copy(CY_objects)
     TC_obj[:] = 0
-    for ii,_ in enumerate(Objects):
-        if Objects[ii] == None:
+    for ii,_ in enumerate(object_indices):
+        if object_indices[ii] == None:
             continue
-        ObjACT = CY_objects[Objects[ii]] == ii + 1
+        ObjACT = CY_objects[object_indices[ii]] == ii + 1
         if ObjACT.shape[0] < 2 * 8:
             continue
-        T_ACT = np.copy(TK[Objects[ii]])
-        SLP_ACT = np.copy(SLP[Objects[ii]])
-        LonObj = Lon[Objects[ii][1], Objects[ii][2]]
-        LatObj = Lat[Objects[ii][1], Objects[ii][2]]
+        T_ACT = np.copy(TK[object_indices[ii]])
+        SLP_ACT = np.copy(SLP[object_indices[ii]])
+        LonObj = Lon[object_indices[ii][1], object_indices[ii][2]]
+        LatObj = Lat[object_indices[ii][1], object_indices[ii][2]]
         # check if object crosses the date line
         if LonObj.max() - LonObj.min() > 359:
             ObjACT = np.roll(ObjACT, int(ObjACT.shape[2] / 2), axis=2)
@@ -1821,8 +1832,8 @@ def MultiObjectIdentification(
                 continue
 
             # is the cloud shield cold enough?
-            PR_objACT = np.copy(PR_objects[Objects[ii]])
-            BT_act = np.copy(DATA_all[:, :, :, Variables.index("BT")][Objects[ii]])
+            PR_objACT = np.copy(pr_objects[object_indices[ii]])
+            BT_act = np.copy(bt_data[object_indices[ii]])
             BT_objMean = np.zeros((BT_act.shape[0]))
             BT_objMean[:] = np.nan
             for tt,_ in enumerate(BT_objMean):
@@ -1872,8 +1883,8 @@ def MultiObjectIdentification(
         ObjACT = ObjACT.astype(int)
         ObjACT[ObjACT != 0] = aa
 
-        ObjACT = ObjACT + TC_obj[Objects[ii]]
-        TC_obj[Objects[ii]] = ObjACT
+        ObjACT = ObjACT + TC_obj[object_indices[ii]]
+        TC_obj[object_indices[ii]] = ObjACT
         TC_Tracks[str(aa)] = LatLonTrackAct
         aa = aa + 1
 
@@ -1974,8 +1985,8 @@ def MultiObjectIdentification(
 
     lat[:] = Lat
     lon[:] = Lon
-    PR_real[:] = DATA_all[:, :, :, Variables.index("PR")]
-    PR_obj[:] = PR_objects
+    PR_real[:] = pr_data
+    PR_obj[:] = pr_objects
     MCSs[:] = MCS_obj
     FR_real[:] = Frontal_Diagnostic
     FR_obj[:] = FR_objects
@@ -1990,7 +2001,7 @@ def MultiObjectIdentification(
     IVT_real[:] = IVT
     IVT_obj[:] = IVT_objects
     ARs[:] = AR_obj
-    Cloud_real[:] = DATA_all[:, :, :, Variables.index("BT")]
+    Cloud_real[:] = bt_data
     Cloud_obj[:] = C_objects
     otimes[:] = itimes
 
@@ -2168,8 +2179,8 @@ def MCStracking(
     DT = cfg.DT
 
     #Precipitation tracking setup
-    SmoothSigmaP    = cfg.SmoothSigmaP   # [0] Gaussion std for precipitation smoothing
-    Pthreshold      = cfg.Pthreshold     # [2] precipitation threshold [mm/h]
+    smooth_sigma_pr    = cfg.smooth_sigma_pr   # [0] Gaussion std for precipitation smoothing
+    thres_pr      = cfg.thres_pr     # [2] precipitation threshold [mm/h]
     MinTimePR       = cfg.MinTimePR      # [3] minum lifetime of PR feature in hours
     MinAreaPR       = cfg.MinAreaPR      # [5000] minimum area of precipitation feature in km2
     # Brightness temperature (Tb) tracking setup
@@ -2196,49 +2207,48 @@ def MCStracking(
 
 
     # connect over date line?
-    if (Lon[0, 0] < -176) & (Lon[0, -1] > 176):
-        connectLon = 1
-    else:
-        connectLon = 0
+    crosses_dateline = False
+    if (Lon[0, 0] < -176) & (Lon[0, -1] > 176): crosses_dateline = True
+
 
     # ------------------------
     print("        track  precipitation")
 
-    PRsmooth = filters.gaussian_filter(
-        pr_data, sigma=(0, SmoothSigmaP, SmoothSigmaP)
+    pr_smooth= filters.gaussian_filter(
+        pr_data, sigma=(0, smooth_sigma_pr, smooth_sigma_pr)
     )
-    PRmask = PRsmooth >= Pthreshold * DT
-    rgiObjectsPR, nr_objectsUD = ndimage.label(PRmask, structure=obj_structure_3D)
-    print("            " + str(nr_objectsUD) + " precipitation object found")
+    pr_mask = pr_smooth >= thres_pr * DT
+    objects_id_pr, num_objects = ndimage.label(pr_mask, structure=obj_structure_3D)
+    print("            " + str(num_objects) + " precipitation object found")
 
     # connect objects over date line
-    if connectLon == 1:
-        rgiObjectsPR = ConnectLon(rgiObjectsPR)
+    if crosses_dateline is True:
+        objects_id_pr = ConnectLon(objects_id_pr)
 
     # remove None objects
-    Objects = ndimage.find_objects(rgiObjectsPR)
+    object_indices = ndimage.find_objects(objects_id_pr)
 
     # Dummy = [slice(0, 1, None), slice(0, 1, None), slice(0, 1, None)]
-    # Objects = np.array(Objects)
+    # object_indices = np.array(object_indices)
     # for jj in ZERO_V[0]:
-    #     Objects[jj] = Dummy
+    #     object_indices[jj] = Dummy
 
     # Remove objects that are too small or short lived
     rgiAreaObj = np.array(
         [
             [
                 np.sum(
-                    grid_cell_area[Objects[ob][1:]][rgiObjectsPR[Objects[ob]][tt, :, :] == ob + 1]
+                    grid_cell_area[object_indices[ob][1:]][objects_id_pr[object_indices[ob]][tt, :, :] == ob + 1]
                 )
-                for tt in range(rgiObjectsPR[Objects[ob]].shape[0])
+                for tt in range(objects_id_pr[object_indices[ob]].shape[0])
             ]
-            for ob in range(nr_objectsUD)
+            for ob in range(num_objects)
         ],
         dtype=object,
     )
     # create final object array
-    PR_objects = np.copy(rgiObjectsPR)
-    PR_objects[:] = 0
+    pr_objects = np.zeros(objects_id_pr.shape,dtype=int)
+
     ii = 1
     for ob,_ in enumerate(rgiAreaObj):
         AreaTest = np.max(
@@ -2251,15 +2261,15 @@ def MCStracking(
         if (AreaTest == int(MinTimePR / DT)) & (
             len(rgiAreaObj[ob]) >= int(MinTimePR / DT)
         ):
-            PR_objects[rgiObjectsPR == (ob + 1)] = ii
+            pr_objects[objects_id_pr == (ob + 1)] = ii
             ii = ii + 1
 
-    if connectLon == 1:
+    if crosses_dateline is True:
         print("        connect precipitation objects over date line")
-        PR_objects = ConnectLon(PR_objects)
+        pr_objects = ConnectLon(pr_objects)
 
     grPRs = ObjectCharacteristics(
-        PR_objects,  # feature object file
+        pr_objects,  # feature object file
         pr_data,  # original file used for feature detection
         "PR_" + str(start_day.year) + str(start_day.month).zfill(2),
         times,  # timesteps of the data
@@ -2276,31 +2286,31 @@ def MCStracking(
         bt_data, sigma=(0, SmoothSigmaC, SmoothSigmaC)
     )
     Cmask = Csmooth <= Cthreshold
-    rgiObjectsC, nr_objectsUD = ndimage.label(Cmask, structure=obj_structure_3D)
-    print("            " + str(nr_objectsUD) + " cloud object found")
+    rgiObjectsC, num_objects = ndimage.label(Cmask, structure=obj_structure_3D)
+    print("            " + str(num_objects) + " cloud object found")
 
     # connect objects over date line
-    if connectLon == 1:
+    if crosses_dateline is True:
         rgiObjectsC = ConnectLon(rgiObjectsC)
 
     # minimum cloud volume
     # sort the objects according to their size
-    Objects = ndimage.find_objects(rgiObjectsC)
+    object_indices = ndimage.find_objects(rgiObjectsC)
 
     rgiAreaObj = np.array(
         [
             [
                 np.sum(
-                    grid_cell_area[Objects[ob][1:]][rgiObjectsC[Objects[ob]][tt, :, :] == ob + 1]
+                    grid_cell_area[object_indices[ob][1:]][rgiObjectsC[object_indices[ob]][tt, :, :] == ob + 1]
                 )
-                for tt in range(rgiObjectsC[Objects[ob]].shape[0])
+                for tt in range(rgiObjectsC[object_indices[ob]].shape[0])
             ]
-            for ob in range(nr_objectsUD)
+            for ob in range(num_objects)
         ],
         dtype=object,
     )
 
-    # rgiVolObjC=np.array([np.sum(rgiObjectsC[Objects[ob]] == ob+1) for ob in range(nr_objectsUD)])
+    # rgiVolObjC=np.array([np.sum(rgiObjectsC[object_indices[ob]] == ob+1) for ob in range(num_objects)])
 
     # create final object array
     C_objects = np.copy(rgiObjectsC)
@@ -2324,7 +2334,7 @@ def MCStracking(
     print("        break up long living cloud shield objects that heve many elements")
     C_objects = BreakupObjects(C_objects, int(MinTimeC / DT), DT)
     # connect objects over date line
-    if connectLon == 1:
+    if crosses_dateline is True:
         print("        connect cloud objects over date line")
         C_objects = ConnectLon(C_objects)
 
@@ -2342,18 +2352,18 @@ def MCStracking(
 
     print("        check if pr objects quallify as MCS")
     # check if precipitation object is from an MCS
-    Objects = ndimage.find_objects(PR_objects.astype(int))
-    MCS_obj = np.copy(PR_objects)
+    object_indices = ndimage.find_objects(pr_objects)
+    MCS_obj = np.copy(pr_objects)
     MCS_obj[:] = 0
-    for ii,_ in enumerate(Objects):
-        if Objects[ii] == None:
+    for ii,_ in enumerate(object_indices):
+        if object_indices[ii] == None:
             continue
-        ObjACT = PR_objects[Objects[ii]] == ii + 1
+        ObjACT = pr_objects[object_indices[ii]] == ii + 1
         if ObjACT.shape[0] < 2:
             continue
-        Cloud_ACT = np.copy(C_objects[Objects[ii]])
-        Area_ACT = grid_cell_area[Objects[ii][1], Objects[ii][2]]
-        PR_ACT = pr_data[Objects[ii]]
+        Cloud_ACT = np.copy(C_objects[object_indices[ii]])
+        Area_ACT = grid_cell_area[object_indices[ii][1], object_indices[ii][2]]
+        PR_ACT = pr_data[object_indices[ii]]
 
         PR_Size = np.array(
             [np.sum(Area_ACT[ObjACT[tt, :, :] > 0]) for tt in range(ObjACT.shape[0])]
@@ -2371,7 +2381,7 @@ def MCStracking(
         if len(rgiCL_obj) == 0:
             # no deep cloud shield is over the precipitation
             continue
-        CL_OB_TMP = C_objects[Objects[ii][0]]
+        CL_OB_TMP = C_objects[object_indices[ii][0]]
         CLOUD_obj_act = np.in1d(CL_OB_TMP.flatten(), rgiCL_obj).reshape(CL_OB_TMP.shape)
         Cloud_Size = np.array(
             [
@@ -2380,8 +2390,8 @@ def MCStracking(
             ]
         )
         # min temperatur must be taken over precip area
-        CL_ob_pr = C_objects[Objects[ii]]
-        CL_BT_pr = bt_data[Objects[ii]]
+        CL_ob_pr = C_objects[object_indices[ii]]
+        CL_BT_pr = bt_data[object_indices[ii]]
         Cloud_MinT = np.array(
             [
                 np.min(CL_BT_pr[tt, CL_ob_pr[tt, :, :] > 0])
@@ -2415,15 +2425,15 @@ def MCStracking(
         ) / window_length
         if len(moving_averages) > 0:
             if np.max(moving_averages) == 1:
-                TMP = np.copy(MCS_obj[Objects[ii]])
+                TMP = np.copy(MCS_obj[object_indices[ii]])
                 TMP = TMP + ObjACT
-                MCS_obj[Objects[ii]] = TMP
+                MCS_obj[object_indices[ii]] = TMP
             else:
                 continue
         else:
             continue
 
-    rgiObjectsMCS, nr_objectsUD = ndimage.label(MCS_obj, structure=obj_structure_3D)
+    rgiObjectsMCS, num_objects = ndimage.label(MCS_obj, structure=obj_structure_3D)
     grMCSs = ObjectCharacteristics(
         rgiObjectsMCS,  # feature object file
         pr_data,  # original file used for feature detection
@@ -2504,7 +2514,7 @@ def MCStracking(
     lat[:] = Lat
     lon[:] = Lon
     PR_real[:] = pr_data
-    PR_obj[:] = PR_objects
+    PR_obj[:] = pr_objects
     MCSs[:] = MCS_obj
     Cloud_real[:] =bt_data
     Cloud_obj[:] = C_objects
