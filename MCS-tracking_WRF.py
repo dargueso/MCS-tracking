@@ -23,6 +23,7 @@
 from glob import glob
 import datetime
 import time
+import pickle
 
 import numpy as np
 import xarray as xr
@@ -46,12 +47,6 @@ month = 9
 freq = "01H"
 
 dT = 1
-###########################################################
-###########################################################
-
-#reading config file
-
-
 
 ############# END OF USER MODIF ###########################
 ###########################################################
@@ -92,16 +87,16 @@ def storm_tracking(pr_finname):
     Lon = RAIN.lon.values
 
     sdate = datetime.datetime(
-        RAIN.time.isel(time=0).dt.year,
-        RAIN.time.isel(time=0).dt.month,
-        RAIN.time.isel(time=0).dt.day,
-        RAIN.time.isel(time=0).dt.hour,
+        int(RAIN.time.isel(time=0).dt.year),
+        int(RAIN.time.isel(time=0).dt.month),
+        int(RAIN.time.isel(time=0).dt.day),
+        int(RAIN.time.isel(time=0).dt.hour),
     )
     edate = datetime.datetime(
-        RAIN.time.isel(time=-1).dt.year,
-        RAIN.time.isel(time=-1).dt.month,
-        RAIN.time.isel(time=-1).dt.day,
-        RAIN.time.isel(time=-1).dt.hour,
+        int(RAIN.time.isel(time=-1).dt.year),
+        int(RAIN.time.isel(time=-1).dt.month),
+        int(RAIN.time.isel(time=-1).dt.day),
+        int(RAIN.time.isel(time=-1).dt.hour),
     )
     Time = pd.date_range(sdate, end=edate, freq=freq)
 
@@ -138,7 +133,8 @@ def storm_tracking(pr_finname):
     end_time = time.time()
     print(f"======> DONE in {(end_time-start_time):.2f} seconds \n")
 
-    import pdb; pdb.set_trace()
+    fout_name = f'{cfg.path_in}/{wrun}/Storm_properties_{sdate.year}-{sdate.month:02d}.pkl'
+    pickle.dump(grMCSs,open(fout_name,'wb'))
 ###############################################################################
 ##### __main__  scope
 ###############################################################################
