@@ -24,7 +24,6 @@ from glob import glob
 import datetime
 import time
 
-import numpy as np
 import xarray as xr
 import pandas as pd
 
@@ -43,10 +42,10 @@ def main():
     """
 
     filesin = sorted(
-        glob(f"{cfg.path_in}/UIB_01H_RAIN_201[3-4]-09.nc")
+        glob(f"{cfg.path_in}/UIB_01H_RAIN_2014-09.nc")
     )
-    Parallel(n_jobs=1)(delayed(storm_tracking)(fin_name) for fin_name in filesin)
 
+    Parallel(n_jobs=1)(delayed(storm_tracking)(fin_name) for fin_name in filesin)
 
 ###########################################################
 ###########################################################

@@ -1,6 +1,6 @@
 
-path_in = "/vg6/dargueso-NO-BKUP/postprocessed/unified/EPICC/EPICC_2km_ERA5_HVC_GWD/"
-
+#path_in = "/vg6/dargueso-NO-BKUP/postprocessed/unified/EPICC/EPICC_2km_ERA5_HVC_GWD/"
+path_in = "/Users/daniel/Scripts/MCS-tracking"
 ## MCS config
 DT = 1 # time step of data in hours
 Variables = ["PR", "Tb"]
@@ -19,12 +19,12 @@ min_time_bt = 3  # minium lifetime of cloud shield in hours
 min_area_bt = 5000  # minimum area of cloud shield in km2
 
 # MCs detection
-MCS_Minsize = min_area_pr  # minimum area of MCS precipitation object in km2
-MCS_minPR = 10  # minimum max precipitation in mm/h
-MCS_MinPeakPR = 10  # Minimum lifetime peak of MCS precipitation
-CL_MaxT = 225  # minimum brightness temperature
-CL_Area = min_area_bt  # min cloud area size in km2
-MCS_minTime = 4  # minimum lifetime of MCS
+MCS_min_area = min_area_pr  # minimum area of MCS precipitation object in km2
+MCS_thres_pr = 10  # minimum max precipitation in mm/h
+MCS_thres_peak_pr = 10  # Minimum lifetime peak of MCS precipitation
+MCS_thres_bt = 225  # minimum brightness temperature
+MCS_min_area_bt = min_area_bt  # min cloud area size in km2
+MCS_min_time = 4  # minimum lifetime of MCS
 
 
 

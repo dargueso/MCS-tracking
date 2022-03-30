@@ -14,6 +14,7 @@ from pdb import set_trace as stop
 import pickle
 from itertools import groupby
 import datetime
+import time
 
 
 import numpy as np
@@ -21,6 +22,7 @@ import matplotlib.path as mplPath
 import netCDF4 as nc
 import h5py
 import pandas as pd
+import xarray as xr
 
 from scipy.ndimage import filters
 from scipy.ndimage import morphology
@@ -142,64 +144,6 @@ def remove_small_short_objects(objects_id,area_objects,min_area,min_time,DT):
     return sel_objects
 
 
-    """ Calculates the area of each object during their lifetime
-        one area value for each object and each timestep it exist
-    """
-    num_objects = len(object_indices)
-    area_objects = np.array(
-        [
-            [
-            np.sum(grid_cell_area[object_indices[obj][1:]][objects_id_pr[object_indices[obj]][tstep, :, :] == obj + 1])
-            for tstep in range(objects_id_pr[object_indices[obj]].shape[0])
-            ]
-        for obj in range(num_objects)
-        ],
-    dtype=object
-    )
-
-    return area_objects
-
-def remove_small_short_objects(objects_id,area_objects,min_area,min_time,DT):
-    """Checks if the object is large enough during enough time steps
-        and removes objects that do not meet this condition
-        area_object: array of lists with areas of each objects during their lifetime [objects[tsteps]]
-        min_area: minimum area of the object (km2)
-        min_time: minimum time with the object large enough (hours)
-    """
-
-    # create final object array
-    sel_objects = np.zeros(objects_id.shape,dtype=int)
-
-    new_obj_id = 1
-    for obj,_ in enumerate(area_objects):
-        AreaTest = np.max(
-            np.convolve(
-                np.array(area_objects[obj]) >= min_area * 1000**2,
-                np.ones(int(min_time/ DT)),
-                mode="valid",
-            )
-        )
-        if (AreaTest == int(min_time/ DT)) & (
-            len(area_objects[obj]) >= int(min_time/ DT)
-        ):
-            sel_objects[objects_id == (obj + 1)] =     new_obj_id
-            new_obj_id += 1
-
-    return sel_objects
-
-    # for obj,_ in enumerate(area_objects):
-    #     area_large_tsteps = np.array(area_objects[obj]) >= min_area * 1000**2
-    #     window_length = np.ones(int(min_time/ DT))
-    #     area_test = np.max(np.convolve(area_large_tsteps,window_length,mode="valid"))
-    #
-    #     if (area_test <= int(min_time/ DT)) or (len(area_objects[obj])<int(min_time_pr/ DT)):
-    #         pr_objects[pr_objects == obj] = 0
-    #
-    #     #Relabelling to make an object array of consecutive integers
-    #     unq_obj, unq_tags = np.unique(pr_objects,return_inverse=1)
-    #     sel_pr_objects = unq_tags.reshape(pr_objects.shape)
-    #
-    # return sel_pr_objects
 
 ###########################################################
 ###########################################################
@@ -234,9 +178,8 @@ def ObjectCharacteristics(
                 object_indices = ndimage.find_objects(pr_object)
                 if len(object_indices) > 1:
                     object_indices = [
-                        object_indices[np.where(np.array(object_indices, dtype=object) !=  None)[0][0]]
+                        object_indices[np.where(np.array(object_indices, dtype=object) != None)[0][0]]
                     ]
-
                 ObjAct = pr_object[object_indices[0]]
                 ValAct = PR_orig[TT, :, :][object_indices[0]]
                 ValAct[ObjAct == 0] = np.nan
@@ -266,7 +209,7 @@ def ObjectCharacteristics(
                 TrackAll[:] = np.nan
                 try:
                     for ii,_ in enumerate(rgrMassCent):
-                        if ~np.isnan(rgrMassCent[ii, 0]) is True:
+                        if ~np.isnan(rgrMassCent[ii, 0]) == True:
                             TrackAll[ii, 1] = LatAct[
                                 int(np.round(rgrMassCent[ii][0], 0)),
                                 int(np.round(rgrMassCent[ii][1], 0)),
@@ -1005,11 +948,11 @@ def MultiObjectIdentification(
     TC_T850min=285,  # minimum temperature of TC core at 850hPa [K]
     TC_minBT=241,  # minimum average cloud top brightness temperature [K]
     # MCs detection
-    MCS_Minsize=2500,  # minimum size of precipitation area [km2]
-    MCS_minPR=10,  # minimum precipitation threshold [mm/h]
-    CL_MaxT=225,  # minimum brightness temperature in ice shield [K]
-    CL_Area=40000,  # minimum cloud area size [km2]
-    MCS_minTime=4,  # minimum lifetime of MCS [hours]
+    MCS_min_area =2500,  # minimum size of precipitation area [km2]
+    MCS_thres_pr=10,  # minimum precipitation threshold [mm/h]
+    MCS_thres_bt =225,  # minimum brightness temperature in ice shield [K]
+    MCS_min_area_bt=40000,  # minimum cloud area size [km2]
+    MCS_min_time=4,  # minimum lifetime of MCS [hours]
 ):
 
     Variables = ["V", "U", "T", "Q", "SLP", "IVTE", "IVTN", "PR", "BT"]
@@ -1069,7 +1012,6 @@ def MultiObjectIdentification(
 
 
     print("    Derive nescessary varialbes for feature indentification")
-    import time
 
     start = time.perf_counter()
     # 11111111111111111111111111111111111111111111111111
@@ -1214,7 +1156,7 @@ def MultiObjectIdentification(
     slp_data[:, Mask == 0] = np.nan
     ivte_data[:, Mask == 0] = np.nan
     ivtn_data[:, Mask == 0] = np.nan
-    pr_data [:, Mask == 0] = np.nan,
+    pr_data [:, Mask == 0] = np.nan
     bt_data[:, Mask == 0] = np.nan
     Pressure_anomaly[:, Mask == 0] = np.nan
     HighPressure_annomaly[:, Mask == 0] = np.nan
@@ -1772,7 +1714,7 @@ def MultiObjectIdentification(
     start = time.perf_counter()
     # check if precipitation object is from an MCS
     object_indices = ndimage.find_objects(pr_objects)
-    MCS_obj = np.zeros(pr_objects.shape,dtype=int)
+    MCS_objects = np.zeros(pr_objects.shape,dtype=int)
     for ii,_ in enumerate(object_indices):
         if object_indices[ii] == None:
             continue
@@ -1785,10 +1727,10 @@ def MultiObjectIdentification(
         Area_ACT = grid_cell_area[object_indices[ii][1], object_indices[ii][2]]
         PR_ACT = pr_data[object_indices[ii]]
 
-        PR_Size = np.array(
+        pr_size = np.array(
             [np.sum(Area_ACT[ObjACT[tt, :, :] > 0]) for tt in range(ObjACT.shape[0])]
         )
-        PR_MAX = np.array(
+        pr_max = np.array(
             [
                 np.max(PR_ACT[tt, ObjACT[tt, :, :] > 0])
                 if len(PR_ACT[tt, ObjACT[tt, :, :] > 0]) > 0
@@ -1811,14 +1753,14 @@ def MultiObjectIdentification(
             ]
         )
         # min temperatur must be taken over precip area
-        CL_ob_pr = bt_objects[object_indices[ii]]
-        CL_BT_pr = bt_data[object_indices[ii]]
-        Cloud_MinT = np.array(
+        bt_object_act = bt_objects[object_indices[ii]]
+        bt_act = bt_data[object_indices[ii]]
+        bt_min_temp  = np.array(
             [
-                np.min(CL_BT_pr[tt, CL_ob_pr[tt, :, :] > 0])
-                if len(CL_ob_pr[tt, CL_ob_pr[tt, :, :] > 0]) > 0
+                np.min(bt_act[tt, bt_object_act[tt, :, :] > 0])
+                if len(bt_object_act[tt, bt_object_act[tt, :, :] > 0]) > 0
                 else 0
-                for tt in range(CL_ob_pr.shape[0])
+                for tt in range(bt_object_act.shape[0])
             ]
         )
         # is precipitation associated with AR?
@@ -1827,11 +1769,11 @@ def MultiObjectIdentification(
         AR_test = np.sum(AR_ob > 0, axis=(1, 2))
 
         # Test if object is an MCS
-        MCS_TEST = (
-            (Cloud_Size >= CL_Area)
-            & (Cloud_MinT <= CL_MaxT)
-            & (PR_Size >= MCS_Minsize)
-            & (PR_MAX >= MCS_minPR * dT)
+        MCS_test = (
+            (Cloud_Size >= MCS_min_area_bt)
+            & (bt_min_temp  <= MCS_thres_bt )
+            & (pr_size >= MCS_min_area )
+            & (pr_max >= MCS_thres_pr * dT)
             & (AR_test == 0)
         )
 
@@ -1843,14 +1785,14 @@ def MultiObjectIdentification(
         ObjACT[AR_test > 0] = 0
 
         # PR area defines MCS area and precipitation
-        window_length = int(MCS_minTime / dT)
+        window_length = int(MCS_min_time / dT)
         moving_averages = (
-            np.convolve(MCS_TEST, np.ones(window_length), "valid") / window_length
+            np.convolve(MCS_test, np.ones(window_length), "valid") / window_length
         )
         if np.max(moving_averages) == 1:
-            TMP = np.copy(MCS_obj[object_indices[ii]])
+            TMP = np.copy(MCS_objects[object_indices[ii]])
             TMP = TMP + ObjACT
-            MCS_obj[object_indices[ii]] = TMP
+            MCS_objects[object_indices[ii]] = TMP
         else:
             continue
     end = time.perf_counter()
@@ -2094,7 +2036,7 @@ def MultiObjectIdentification(
     lon[:] = Lon
     PR_real[:] = pr_data
     PR_obj[:] = pr_objects
-    MCSs[:] = MCS_obj
+    MCSs[:] = MCS_objects
     FR_real[:] = Frontal_Diagnostic
     FR_obj[:] = FR_objects
     CY_real[:] = SLP_Anomaly
@@ -2266,6 +2208,7 @@ def readMERGIR(TimeBT, Lon, Lat, FocusRegion):
     return CLOUD_DATA
 
 
+
 ############################################################
 ###########################################################
 #### ======================================================
@@ -2281,6 +2224,7 @@ def MCStracking(
     """ Function to track MCS from precipitation and brightness temperature
     """
 
+    start = time.perf_counter()
     #Reading tracking parameters
 
     DT = cfg.DT
@@ -2296,12 +2240,12 @@ def MCStracking(
     min_time_bt     = cfg.min_time_bt       # [9] minium lifetime of cloud shield in hours
     min_area_bt     = cfg.min_area_bt       # [40000] minimum area of cloud shield in km2
     # MCs detection
-    MCS_Minsize     = cfg.MCS_Minsize    # [5000] km2
-    MCS_minPR       = cfg.MCS_minPR      # [10] minimum max precipitation in mm/h
-    MCS_MinPeakPR   = cfg.MCS_MinPeakPR  # [10] Minimum lifetime peak of MCS precipitation
-    CL_MaxT         = cfg.CL_MaxT        # [225] minimum brightness temperature
-    CL_Area         = cfg.CL_Area        # [40000] min cloud area size in km2
-    MCS_minTime     = cfg.MCS_minTime    # [4] minimum time step
+    MCS_min_area      = cfg.MCS_min_area    # [5000] km2
+    MCS_thres_pr       = cfg.MCS_thres_pr      # [10] minimum max precipitation in mm/h
+    MCS_thres_peak_pr   = cfg.MCS_thres_peak_pr  # [10] Minimum lifetime peak of MCS precipitation
+    MCS_thres_bt     = cfg.MCS_thres_bt        # [225] minimum brightness temperature
+    MCS_min_area_bt         = cfg.MCS_min_area_bt        # [40000] min cloud area size in km2
+    MCS_min_time     = cfg.MCS_min_time    # [4] minimum time step
 
     #Calculating grid distances and areas
 
@@ -2318,10 +2262,12 @@ def MCStracking(
     if (Lon[0, 0] < -176) & (Lon[0, -1] > 176):
         crosses_dateline = True
 
-
+    end = time.perf_counter()
+    timer(start, end)
     # --------------------------------------------------------
     # TRACKING PRECIP OBJECTS
     # --------------------------------------------------------
+    start = time.perf_counter()
     print("        track  precipitation")
 
     pr_smooth= filters.gaussian_filter(
@@ -2358,10 +2304,12 @@ def MCStracking(
         min_tsteps=int(min_time_pr/ DT), # minimum lifetime in data timesteps
     )
 
-
+    end = time.perf_counter()
+    timer(start, end)
     # --------------------------------------------------------
     # TRACKING CLOUD (BT) OBJECTS
     # --------------------------------------------------------
+    start = time.perf_counter()
     print("        track  clouds")
     bt_smooth = filters.gaussian_filter(
         bt_data, sigma=(0, smooth_sigma_bt, smooth_sigma_bt)
@@ -2385,14 +2333,21 @@ def MCStracking(
     # Remove objects that are too small or short lived
     bt_objects = remove_small_short_objects(objects_id_bt,area_objects,min_area_bt,min_time_bt,DT)
 
+    end = time.perf_counter()
+    timer(start, end)
+    start = time.perf_counter()
 
     print("        break up long living cloud shield objects that heve many elements")
     bt_objects = BreakupObjects(bt_objects, int(min_time_bt / DT), DT)
 
+    end = time.perf_counter()
+    timer(start, end)
+    start = time.perf_counter()
+
     grCs = ObjectCharacteristics(
         bt_objects,  # feature object file
         bt_data,  # original file used for feature detection
-        "Clouds_" + str(start_day.year) + str(start_day.month).zfill(2),
+        f"BT_{start_day.year}{start_day.month:02d}",
         times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
@@ -2400,204 +2355,234 @@ def MCStracking(
         grid_cell_area,
         min_tsteps=int(min_time_bt / DT), # minimum lifetime in data timesteps
     )
-
+    end = time.perf_counter()
+    timer(start, end)
     # --------------------------------------------------------
     # CHECK IF PR OBJECTS QUALIFY AS MCS
     # (or selected strom type according to msc_config.py)
     # --------------------------------------------------------
-
+    start = time.perf_counter()
     print("        check if pr objects quallify as MCS (or selected storm type)")
     # check if precipitation object is from an MCS
     object_indices = ndimage.find_objects(pr_objects)
-    MCS_obj = np.zeros(pr_objects.shape,dtype=int)
+    MCS_objects = np.zeros(pr_objects.shape,dtype=int)
 
     for iobj,_ in enumerate(object_indices):
 
         if object_indices[iobj] is None:
             continue
 
+        time_slice = object_indices[iobj][0]
+        lat_slice  = object_indices[iobj][1]
+        lon_slice  = object_indices[iobj][2]
 
-        pr_object_act = pr_objects[object_indices[iobj]] == iobj + 1
+
+        pr_object_slice= pr_objects[object_indices[iobj]]
+        pr_object_act = np.where(pr_object_slice==iobj+1,True,False)
 
         if len(pr_object_act) < 2:
             continue
 
-        pr_act =  pr_data[object_indices[iobj]]
-        area_act = grid_cell_area[object_indices[iobj][1], object_indices[iobj][2]]
-        area_act3d = np.tile(area_act, (pr_act.shape[0], 1, 1))
-        area_act3d[~pr_object_act] = 0
-        bt_object_overlap = np.copy(bt_objects[object_indices[iobj]])
+        pr_slice =  pr_data[object_indices[iobj]]
+        pr_act = np.copy(pr_slice)
+        pr_act[~pr_object_act] = 0
 
-        pr_size = np.array(np.sum(area_act3d,axis=0))
+        bt_slice  = bt_data[object_indices[iobj]]
+        bt_act = np.copy(bt_slice)
+        bt_act[~pr_object_act] = 0
+
+        bt_object_slice = bt_objects[object_indices[iobj]]
+        bt_object_act = np.copy(bt_object_slice)
+        bt_object_act[~pr_object_act] = 0
+
+        area_act = np.tile(grid_cell_area[lat_slice, lon_slice], (pr_act.shape[0], 1, 1))
+        area_act[~pr_object_act] = 0
 
 
 
-    for ii,_ in enumerate(object_indices):
-        if object_indices[ii] == None:
-            continue
-        ObjACT = pr_objects[object_indices[ii]] == ii + 1
-        if ObjACT.shape[0] < 2:
-            continue
-        Cloud_ACT = np.copy(bt_objects[object_indices[ii]])
-        Area_ACT = grid_cell_area[object_indices[ii][1], object_indices[ii][2]]
-        PR_ACT = pr_data[object_indices[ii]]
+        pr_size = np.array(np.sum(area_act,axis=(1,2)))
+        pr_max = np.array(np.max(pr_act,axis=(1,2)))
 
-        PR_Size = np.array(
-            [np.sum(Area_ACT[ObjACT[tt, :, :] > 0]) for tt in range(ObjACT.shape[0])]
-        )
-        PR_MAX = np.array(
-            [
-                np.max(PR_ACT[tt, ObjACT[tt, :, :] > 0])
-                if len(PR_ACT[tt, ObjACT[tt, :, :] > 0]) > 0
-                else 0
-                for tt in range(ObjACT.shape[0])
-            ]
-        )
-        # Get cloud shield
-        rgiCL_obj = np.delete(np.unique(Cloud_ACT[ObjACT > 0]), 0)
-        if len(rgiCL_obj) == 0:
+
+        #Check overlaps between clouds (bt) and precip objects
+        objects_overlap = np.delete(np.unique(bt_object_act[pr_object_act]),0)
+
+        if len(objects_overlap) == 0:
             # no deep cloud shield is over the precipitation
             continue
-        CL_OB_TMP = bt_objects[object_indices[ii][0]]
-        CLOUD_obj_act = np.in1d(CL_OB_TMP.flatten(), rgiCL_obj).reshape(CL_OB_TMP.shape)
-        Cloud_Size = np.array(
-            [
-                np.sum(grid_cell_area[CLOUD_obj_act[tt, :, :] > 0])
-                for tt in range(CLOUD_obj_act.shape[0])
-            ]
-        )
-        # min temperatur must be taken over precip area
-        CL_ob_pr = bt_objects[object_indices[ii]]
-        CL_BT_pr = bt_data[object_indices[ii]]
-        Cloud_MinT = np.array(
-            [
-                np.min(CL_BT_pr[tt, CL_ob_pr[tt, :, :] > 0])
-                if len(CL_ob_pr[tt, CL_ob_pr[tt, :, :] > 0]) > 0
-                else 0
-                for tt in range(CL_ob_pr.shape[0])
-            ]
-        )
-        # minimum lifetime peak precipitation
-        PR_MAXLT = np.copy(PR_MAX)
-        PR_MAXLT[:] = np.max(PR_MAXLT)
-        PR_MAXLT[:] = PR_MAXLT >= MCS_MinPeakPR * DT
 
-        MCS_TEST = (
-            (Cloud_Size / 1000**2 >= CL_Area)
-            & (Cloud_MinT <= CL_MaxT)
-            & (PR_Size / 1000**2 >= MCS_Minsize)
-            & (PR_MAX >= MCS_minPR * DT)
-            & (PR_MAXLT == 1)
+        ## Keep bt objects (entire) that partially overlap with pr object
+
+        bt_object_overlap = np.in1d(bt_objects[time_slice].flatten(), objects_overlap).reshape(bt_objects[time_slice].shape)
+
+        # Get size of all cloud (bt) objects together
+        # We get size of all cloud objects that overlap partially with pr object
+        # DO WE REALLY NEED THIS?
+
+        bt_size = np.array(
+            [
+            np.sum(grid_cell_area[bt_object_overlap[tt, :, :] > 0])
+            for tt in range(bt_object_overlap.shape[0])
+            ]
+        )
+
+        #Check if BT is below threshold over precip areas
+        bt_min_temp = np.nanmin(np.where(bt_object_slice>0,bt_slice,np.nan),axis=(1,2))
+
+
+
+        # minimum lifetime peak precipitation
+        is_pr_peak_intense = np.max(pr_max) >= MCS_thres_peak_pr * DT
+        MCS_test = (
+            (bt_size / 1000**2 >= MCS_min_area_bt)
+            & (bt_min_temp  <= MCS_thres_bt )
+            & (pr_size / 1000**2 >= MCS_min_area )
+            & (pr_max >= MCS_thres_pr * DT)
+            & (is_pr_peak_intense)
         )
 
         # assign unique object numbers
-        ObjACT = np.array(ObjACT).astype(int)
-        ObjACT[ObjACT == 1] = ii + 1
 
-        # PR area defines MCS area and precipitation
-        window_length = int(MCS_minTime / DT)
-        cumulative_sum = np.cumsum(np.insert(MCS_TEST, 0, 0))
-        moving_averages = (
-            cumulative_sum[window_length:] - cumulative_sum[:-window_length]
-        ) / window_length
-        if len(moving_averages) > 0:
-            if np.max(moving_averages) == 1:
-                TMP = np.copy(MCS_obj[object_indices[ii]])
-                TMP = TMP + ObjACT
-                MCS_obj[object_indices[ii]] = TMP
-            else:
-                continue
+        pr_object_act = np.array(pr_object_act).astype(int)
+        pr_object_act[pr_object_act == 1] = iobj + 1
+
+        window_length = int(MCS_min_time / DT)
+        moving_averages = np.convolve(MCS_test, np.ones(window_length), 'valid') / window_length
+        if (len(moving_averages) > 0) & (np.max(moving_averages) == 1):
+            TMP = np.copy(MCS_objects[object_indices[iobj]])
+            TMP = TMP + pr_object_act
+            MCS_objects[object_indices[iobj]] = TMP
+
         else:
             continue
 
-    rgiObjectsMCS, num_objects = ndimage.label(MCS_obj, structure=obj_structure_3D)
+    #if len(objects_overlap)>1: import pdb; pdb.set_trace()
+    objects_id_MCS, num_objects = ndimage.label(MCS_objects, structure=obj_structure_3D)
     grMCSs = ObjectCharacteristics(
-        rgiObjectsMCS,  # feature object file
+        objects_id_MCS,  # feature object file
         pr_data,  # original file used for feature detection
-        "MCS_" + str(start_day.year) + str(start_day.month).zfill(2),
+        f"MCS_{start_day.year}{start_day.month:02d}",
         times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
         grid_spacing,
         grid_cell_area,
-        min_tsteps=int(MCS_minTime / DT), # minimum lifetime in data timesteps
+        min_tsteps=int(MCS_min_time / DT), # minimum lifetime in data timesteps
     )
 
-    print(" ")
-    print("Save the object masks into a joint netCDF")
+    end = time.perf_counter()
+    timer(start, end)
+
+
+    ###########################################################
+    ###########################################################
+    ## WRite netCDF with xarray
+    start = time.perf_counter()
+    print ('Save objects into a netCDF')
+
+    fino=xr.Dataset({'MCS':(['time','y','x'],objects_id_MCS),
+                     'PR_real':(['time','y','x'],pr_data),
+                     'PR_obj':(['time','y','x'],objects_id_pr),
+                     'BT_real':(['time','y','x'],bt_data),
+                     'BT_obj':(['time','y','x'],objects_id_bt),
+                     'lat':(['y','x'],Lat),
+                     'lon':(['y','x'],Lon)},
+                     coords={'time':times.values})
+
+    fino.to_netcdf(NCfile,mode='w',encoding={'PR_real':{'zlib': True,'complevel': 5},
+                                             'PR_obj':{'zlib': True,'complevel': 5},
+                                             'BT_real':{'zlib': True,'complevel': 5},
+                                             'BT_obj':{'zlib': True,'complevel': 5}})
+    end = time.perf_counter()
+    timer(start, end)
+    #
+    # fino = xr.Dataset({
+    # 'MCS_objects': xr.DataArray(
+    #             data   = objects_id_MCS,   # enter data here
+    #             dims   = ['time','y','x'],
+    #             coords = {'time': times},
+    #             attrs  = {
+    #                 '_FillValue': const.missingval,
+    #                 'long_name': 'Mesoscale Convective System objects',
+    #                 'units'     : '',
+    #                 }
+    #             ),
+    # 'PR_objects': xr.DataArray(
+    #             data   = objects_id_pr,   # enter data here
+    #             dims   = ['time','y','x'],
+    #             coords = {'time': times},
+    #             attrs  = {
+    #                 '_FillValue': const.missingval,
+    #                 'long_name': 'Precipitation objects',
+    #                 'units'     : '',
+    #                 }
+    #             ),
+    # 'BT_objects': xr.DataArray(
+    #             data   = objects_id_bt,   # enter data here
+    #             dims   = ['time','y','x'],
+    #             coords = {'time': times},
+    #             attrs  = {
+    #                 '_FillValue': const.missingval,
+    #                 'long_name': 'Cloud (brightness temperature) objects',
+    #                 'units'     : '',
+    #                 }
+    #             ),
+    # 'PR': xr.DataArray(
+    #             data   = pr_data,   # enter data here
+    #             dims   = ['time','y','x'],
+    #             coords = {'time': times},
+    #             attrs  = {
+    #                 '_FillValue': const.missingval,
+    #                 'long_name': 'Precipitation',
+    #                 'standard_name': 'precipitation',
+    #                 'units'     : 'mm h-1',
+    #                 }
+    #             ),
+    # 'BT': xr.DataArray(
+    #             data   = bt_data,   # enter data here
+    #             dims   = ['time','y','x'],
+    #             coords = {'time': times},
+    #             attrs  = {
+    #                 '_FillValue': const.missingval,
+    #                 'long_name': 'Brightness temperature',
+    #                 'standard_name': 'brightness_temperature',
+    #                 'units'     : 'K',
+    #                 }
+    #             ),
+    # 'lat': xr.DataArray(
+    #             data   = Lat,   # enter data here
+    #             dims   = ['y','x'],
+    #             attrs  = {
+    #                 '_FillValue': const.missingval,
+    #                 'long_name': "latitude",
+    #                 'standard_name': "latitude",
+    #                 'units'     : "degrees_north",
+    #                 }
+    #             ),
+    # 'lon': xr.DataArray(
+    #             data   = Lon,   # enter data here
+    #             dims   = ['y','x'],
+    #             attrs  = {
+    #                 '_FillValue': const.missingval,
+    #                 'long_name': "longitude",
+    #                 'standard_name': "longitude",
+    #                 'units'     : "degrees_east",
+    #                 }
+    #             ),
+    #         },
+    #     attrs = {'date':datetime.date.today().strftime('%Y-%m-%d'),
+    #              "comments": "File created with MCS_tracking"}
+    # )
+    #
+    #
+    # fino.to_netcdf(NCfile,mode='w',format = "NETCDF4",
+    #                encoding={'PR':{'zlib': True,'complevel': 5},
+    #                          'PR_objects':{'zlib': True,'complevel': 5},
+    #                          'BT':{'zlib': True,'complevel': 5},
+    #                          'BT_objects':{'zlib': True,'complevel': 5}})
+
+    ###########################################################
+    ###########################################################
     # ============================
     # Write NetCDF
-    itimes = np.array((times - times[0]).total_seconds()).astype("int")
-
-    dataset = nc.Dataset(NCfile, "w", format="NETCDF4_CLASSIC")
-    dataset.createDimension("yc", Lat.shape[0])
-    dataset.createDimension("xc", Lat.shape[1])
-    dataset.createDimension("time", None)
-
-    otimes = dataset.createVariable("time", np.float64, ("time",))
-    lat = dataset.createVariable(
-        "lat",
-        np.float32,
-        (
-            "yc",
-            "xc",
-        ),
-    )
-    lon = dataset.createVariable(
-        "lon",
-        np.float32,
-        (
-            "yc",
-            "xc",
-        ),
-    )
-    PR_real = dataset.createVariable("PR", np.float32, ("time", "yc", "xc"))
-    PR_obj = dataset.createVariable("PR_Objects", np.float32, ("time", "yc", "xc"))
-    MCSs = dataset.createVariable("MCS_Objects", np.float32, ("time", "yc", "xc"))
-    Cloud_real = dataset.createVariable("BT", np.float32, ("time", "yc", "xc"))
-    Cloud_obj = dataset.createVariable("BT_Objects", np.float32, ("time", "yc", "xc"))
-
-    otimes.calendar = "standard"
-    otimes.units = (
-        "seconds since "
-        + str(times[0].year)
-        + "-"
-        + str(times[0].month).zfill(2)
-        + "-"
-        + str(times[0].day).zfill(2)
-        + " "
-        + str(times[0].hour).zfill(2)
-        + ":"
-        + str(times[0].minute).zfill(2)
-        + ":00"
-    )
-    otimes.standard_name = "time"
-    otimes.long_name = "time"
-
-    lat.long_name = "latitude"
-    lat.units = "degrees_north"
-    lat.standard_name = "latitude"
-
-    lon.long_name = "longitude"
-    lon.units = "degrees_east"
-    lon.standard_name = "longitude"
-
-    PR_real.coordinates = "lon lat"
-    PR_obj.coordinates = "lon lat"
-    MCSs.coordinates = "lon lat"
-    Cloud_real.coordinates = "lon lat"
-    Cloud_obj.coordinates = "lon lat"
-
-    lat[:] = Lat
-    lon[:] = Lon
-    PR_real[:] = pr_data
-    PR_obj[:] = pr_objects
-    MCSs[:] = MCS_obj
-    Cloud_real[:] =bt_data
-    Cloud_obj[:] = bt_objects
-    otimes[:] = itimes
-
-    dataset.close()
-    print("Saved: " + NCfile)
-
-    return grMCSs, MCS_obj
+    return grMCSs, MCS_objects
