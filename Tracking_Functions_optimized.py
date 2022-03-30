@@ -142,6 +142,64 @@ def remove_small_short_objects(objects_id,area_objects,min_area,min_time,DT):
     return sel_objects
 
 
+    """ Calculates the area of each object during their lifetime
+        one area value for each object and each timestep it exist
+    """
+    num_objects = len(object_indices)
+    area_objects = np.array(
+        [
+            [
+            np.sum(grid_cell_area[object_indices[obj][1:]][objects_id_pr[object_indices[obj]][tstep, :, :] == obj + 1])
+            for tstep in range(objects_id_pr[object_indices[obj]].shape[0])
+            ]
+        for obj in range(num_objects)
+        ],
+    dtype=object
+    )
+
+    return area_objects
+
+def remove_small_short_objects(objects_id,area_objects,min_area,min_time,DT):
+    """Checks if the object is large enough during enough time steps
+        and removes objects that do not meet this condition
+        area_object: array of lists with areas of each objects during their lifetime [objects[tsteps]]
+        min_area: minimum area of the object (km2)
+        min_time: minimum time with the object large enough (hours)
+    """
+
+    # create final object array
+    sel_objects = np.zeros(objects_id.shape,dtype=int)
+
+    new_obj_id = 1
+    for obj,_ in enumerate(area_objects):
+        AreaTest = np.max(
+            np.convolve(
+                np.array(area_objects[obj]) >= min_area * 1000**2,
+                np.ones(int(min_time/ DT)),
+                mode="valid",
+            )
+        )
+        if (AreaTest == int(min_time/ DT)) & (
+            len(area_objects[obj]) >= int(min_time/ DT)
+        ):
+            sel_objects[objects_id == (obj + 1)] =     new_obj_id
+            new_obj_id += 1
+
+    return sel_objects
+
+    # for obj,_ in enumerate(area_objects):
+    #     area_large_tsteps = np.array(area_objects[obj]) >= min_area * 1000**2
+    #     window_length = np.ones(int(min_time/ DT))
+    #     area_test = np.max(np.convolve(area_large_tsteps,window_length,mode="valid"))
+    #
+    #     if (area_test <= int(min_time/ DT)) or (len(area_objects[obj])<int(min_time_pr/ DT)):
+    #         pr_objects[pr_objects == obj] = 0
+    #
+    #     #Relabelling to make an object array of consecutive integers
+    #     unq_obj, unq_tags = np.unique(pr_objects,return_inverse=1)
+    #     sel_pr_objects = unq_tags.reshape(pr_objects.shape)
+    #
+    # return sel_pr_objects
 
 ###########################################################
 ###########################################################
