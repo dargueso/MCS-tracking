@@ -787,9 +787,11 @@ def MCStracking(
     #                          'BT_objects':{'zlib': True,'complevel': 5}})
 
 
-    end_time = time.time()
-    print(f"======> 'Writing files: {(end_time-start_time):.2f} seconds \n")
-    start_time = time.time()
+        end_time = time.time()
+        print(f"======> 'Writing files: {(end_time-start_time):.2f} seconds \n")
+        start_time = time.time()
+    else:
+        print(f"No writing files required, output file name is empty")
     ###########################################################
     ###########################################################
     # ============================
