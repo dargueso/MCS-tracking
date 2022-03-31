@@ -158,10 +158,8 @@ def ObjectCharacteristics(
     Lon,  # 2D Longitudes
     grid_spacing,  # average grid spacing
     grid_cell_area,
-    min_tsteps=1,  # minimum lifetime in data timesteps
-    Boundary=1,
-):  # 1 --> remove object when it hits the boundary of the domain
-
+    min_tsteps=1  # minimum lifetime in data timesteps
+    ):
     # ========
 
     num_objects = PR_objectsFull.max()
@@ -567,7 +565,7 @@ def ReadERA5(
             print(FILES[fi])
             ncid = nc.Dataset(FILES[fi], mode="r")
             time_var = ncid.variables["time"]
-            dtime = netCDF4.num2date(time_var[:], time_var.units)
+            dtime = nc.num2date(time_var[:], time_var.units)
             TimeNC = pd.to_datetime(
                 [
                     pd.datetime(d.year, d.month, d.day, d.hour, d.minute, d.second)
@@ -1018,13 +1016,13 @@ def MultiObjectIdentification(
     # calculate vapor transport on pressure level
     VapTrans = (
         (
-            u_data
-            * q_data
+            u850_data
+            * q850_data
         )
         ** 2
         + (
-            v_data
-            * q_data
+            v850_data
+            * q850_data
         )
         ** 2
     ) ** (1 / 2)
@@ -1032,12 +1030,12 @@ def MultiObjectIdentification(
     # 22222222222222222222222222222222222222222222222222
     # Frontal Detection according
     # to https://agupubs.onlinelibrary.wiley.com/doi/full/10.1002/2017GL073662
-    UU = u_data
-    VV = v_data
+    UU = u850_data
+    VV = v850_data
     du = np.gradient(UU)
     dv = np.gradient(VV)
     PV = np.abs(dv[-1] / dx[None, :] - du[-2] / dy[None, :])
-    TK = t_data
+    TK = t850_data
     vgrad = np.gradient(TK, axis=(1, 2))
     Tgrad = np.sqrt(vgrad[0] ** 2 + vgrad[1] ** 2)
 
