@@ -20,23 +20,12 @@ import time
 import numpy as np
 import matplotlib.path as mplPath
 import netCDF4 as nc
-import h5py
 import pandas as pd
 import xarray as xr
 
 from scipy.ndimage import filters
 from scipy.ndimage import morphology
 from scipy import ndimage
-
-from metpy import calc
-
-from cartopy.io import shapereader
-import shapely.geometry as sgeom
-from shapely.ops import unary_union
-from shapely.prepared import prep
-
-
-from tqdm import tqdm
 
 from constants import const
 import mcs_config as cfg
@@ -642,7 +631,7 @@ def MCStracking(
         )
 
         #Check if BT is below threshold over precip areas
-        bt_min_temp = np.nanmin(np.where(bt_object_slice>0,bt_slice,np.nan),axis=(1,2))
+        bt_min_temp = np.nanmin(np.where(bt_object_slice>0,bt_slice,999),axis=(1,2))
 
 
 
@@ -693,25 +682,25 @@ def MCStracking(
     ###########################################################
     ###########################################################
     ## WRite netCDF with xarray
+    if nc_file is not None:
+        print ('Save objects into a netCDF')
 
-    print ('Save objects into a netCDF')
+        fino=xr.Dataset({'MCS_objects':(['time','y','x'],objects_id_MCS),
+                         'PR':(['time','y','x'],pr_data),
+                         'PR_objects':(['time','y','x'],objects_id_pr),
+                         'BT':(['time','y','x'],bt_data),
+                         'BT_objects':(['time','y','x'],objects_id_bt),
+                         'lat':(['y','x'],Lat),
+                         'lon':(['y','x'],Lon)},
+                         coords={'time':times.values})
 
-    fino=xr.Dataset({'MCS_objects':(['time','y','x'],objects_id_MCS),
-                     'PR':(['time','y','x'],pr_data),
-                     'PR_objects':(['time','y','x'],objects_id_pr),
-                     'BT':(['time','y','x'],bt_data),
-                     'BT_objects':(['time','y','x'],objects_id_bt),
-                     'lat':(['y','x'],Lat),
-                     'lon':(['y','x'],Lon)},
-                     coords={'time':times.values})
+        fino.to_netcdf(nc_file,mode='w',encoding={'PR':{'zlib': True,'complevel': 5},
+                                                 'PR_objects':{'zlib': True,'complevel': 5},
+                                                 'BT':{'zlib': True,'complevel': 5},
+                                                 'BT_objects':{'zlib': True,'complevel': 5},
+                                                 'MCS_objects':{'zlib': True,'complevel': 5}})
 
-    fino.to_netcdf(nc_file,mode='w',encoding={'PR':{'zlib': True,'complevel': 5},
-                                             'PR_objects':{'zlib': True,'complevel': 5},
-                                             'BT':{'zlib': True,'complevel': 5},
-                                             'BT_objects':{'zlib': True,'complevel': 5},
-                                             'MCS_objects':{'zlib': True,'complevel': 5}})
 
-    
     # fino = xr.Dataset({
     # 'MCS_objects': xr.DataArray(
     #             data   = objects_id_MCS,   # enter data here
@@ -789,8 +778,8 @@ def MCStracking(
     #     attrs = {'date':datetime.date.today().strftime('%Y-%m-%d'),
     #              "comments": "File created with MCS_tracking"}
     # )
-    
-    
+
+
     # fino.to_netcdf(nc_file,mode='w',format = "NETCDF4",
     #                encoding={'PR':{'zlib': True,'complevel': 5},
     #                          'PR_objects':{'zlib': True,'complevel': 5},
