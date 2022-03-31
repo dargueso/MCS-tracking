@@ -2,10 +2,11 @@ import pytest
 import xarray as xr
 import numpy as np
 import pandas as pd
-
+from scipy import ndimage
 
 from constants import const
 from tracking_functions_optimized import calc_grid_distance_area
+from tracking_functions_optimized import calculate_area_objects
 from tracking_functions_optimized import MCStracking
 
 def test_area_simple():
@@ -51,3 +52,18 @@ def test_MCStracking():
     assert float(grMCSs['1']['rgrPR_Vol'].max())== 17591.9140625
     assert float(grMCSs['7']['rgrPR_Vol'][4]) == 9674.66015625
     assert float(grMCSs['2']['rgrPR_Max'][-1]) == 10.741204261779785
+
+
+def test_area_obj():
+
+    test_obj_id=np.zeros((10,10,10),dtype=int)
+    test_obj_id[2:5,4:9,5:8]=1
+    test_obj_id[6:8,4:8,5:7]=2
+
+    test_object_indices = ndimage.find_objects(test_obj_id)
+
+    area_objects = calculate_area_objects(test_obj_id,test_object_indices,np.ones((10,10),dtype=float))
+
+    assert len(area_objects) == 2
+    assert area_objects[0] == [15.0,15.0,15.0]
+    assert area_objects[1] == [8.0,8.0]
