@@ -424,15 +424,6 @@ def BreakupObjects(
 
     return DATA_fin
 
-
-# from https://stackoverflow.com/questions/27779677/how-to-format-elapsed-time-from-seconds-to-hours-minutes-seconds-and-milliseco
-def timer(start, end):
-    hours, rem = divmod(end - start, 3600)
-    minutes, seconds = divmod(rem, 60)
-    print(
-        "        " + "{:0>2}:{:0>2}:{:05.2f}".format(int(hours), int(minutes), seconds)
-    )
-
 ############################################################
 ###########################################################
 #### ======================================================
@@ -443,12 +434,12 @@ def MCStracking(
     times,
     Lon,
     Lat,
-    NCfile
+    nc_file
 ):
     """ Function to track MCS from precipitation and brightness temperature
     """
 
-    start = time.perf_counter()
+    start_time = time.time()
     #Reading tracking parameters
 
     DT = cfg.DT
@@ -486,12 +477,12 @@ def MCStracking(
     if (Lon[0, 0] < -176) & (Lon[0, -1] > 176):
         crosses_dateline = True
 
-    end = time.perf_counter()
-    timer(start, end)
+    end_time = time.time()
+    print(f"======> 'Initialize MCS tracking function: {(end_time-start_time):.2f} seconds \n")
+    start_time = time.time()
     # --------------------------------------------------------
     # TRACKING PRECIP OBJECTS
     # --------------------------------------------------------
-    start = time.perf_counter()
     print("        track  precipitation")
 
     pr_smooth= filters.gaussian_filter(
@@ -528,13 +519,13 @@ def MCStracking(
         min_tsteps=int(min_time_pr/ DT), # minimum lifetime in data timesteps
     )
 
-    end = time.perf_counter()
-    timer(start, end)
+    end_time = time.time()
+    print(f"======> 'Tracking precip: {(end_time-start_time):.2f} seconds \n")
+    start_time = time.time()
     # --------------------------------------------------------
     # TRACKING CLOUD (BT) OBJECTS
     # --------------------------------------------------------
-    start = time.perf_counter()
-    print("        track  clouds")
+    print("            track  clouds")
     bt_smooth = filters.gaussian_filter(
         bt_data, sigma=(0, smooth_sigma_bt, smooth_sigma_bt)
     )
@@ -544,7 +535,7 @@ def MCStracking(
 
     # connect objects over date line
     if crosses_dateline:
-        print("        connect cloud objects over date line")
+        print("            connect cloud objects over date line")
         objects_id_bt = ConnectLon(objects_id_bt)
 
     # get indices of object to reduce memory requirements during manipulation
@@ -557,16 +548,16 @@ def MCStracking(
     # Remove objects that are too small or short lived
     bt_objects = remove_small_short_objects(objects_id_bt,area_objects,min_area_bt,min_time_bt,DT)
 
-    end = time.perf_counter()
-    timer(start, end)
-    start = time.perf_counter()
+    end_time = time.time()
+    print(f"======> 'Tracking clouds: {(end_time-start_time):.2f} seconds \n")
+    start_time = time.time()
 
-    print("        break up long living cloud shield objects that heve many elements")
+    print("            break up long living cloud shield objects that heve many elements")
     bt_objects = BreakupObjects(bt_objects, int(min_time_bt / DT), DT)
 
-    end = time.perf_counter()
-    timer(start, end)
-    start = time.perf_counter()
+    end_time = time.time()
+    print(f"======> 'Breaking up cloud objects: {(end_time-start_time):.2f} seconds \n")
+    start_time = time.time()
 
     grCs = calc_object_characteristics(
         bt_objects,  # feature object file
@@ -579,14 +570,14 @@ def MCStracking(
         grid_cell_area,
         min_tsteps=int(min_time_bt / DT), # minimum lifetime in data timesteps
     )
-    end = time.perf_counter()
-    timer(start, end)
+    end_time = time.time()
+    print(f"======> 'Calculate cloud characteristics: {(end_time-start_time):.2f} seconds \n")
+    start_time = time.time()
     # --------------------------------------------------------
     # CHECK IF PR OBJECTS QUALIFY AS MCS
     # (or selected strom type according to msc_config.py)
     # --------------------------------------------------------
-    start = time.perf_counter()
-    print("        check if pr objects quallify as MCS (or selected storm type)")
+    print("            check if pr objects quallify as MCS (or selected storm type)")
     # check if precipitation object is from an MCS
     object_indices = ndimage.find_objects(pr_objects)
     MCS_objects = np.zeros(pr_objects.shape,dtype=int)
@@ -694,37 +685,38 @@ def MCStracking(
         min_tsteps=int(MCS_min_time / DT), # minimum lifetime in data timesteps
     )
 
-    end = time.perf_counter()
-    timer(start, end)
+    end_time = time.time()
+    print(f"======> 'MCS tracking: {(end_time-start_time):.2f} seconds \n")
+    start_time = time.time()
 
 
     ###########################################################
     ###########################################################
     ## WRite netCDF with xarray
-    start = time.perf_counter()
+
     print ('Save objects into a netCDF')
 
-    fino=xr.Dataset({'MCS':(['time','y','x'],objects_id_MCS),
-                     'PR_real':(['time','y','x'],pr_data),
-                     'PR_obj':(['time','y','x'],objects_id_pr),
-                     'BT_real':(['time','y','x'],bt_data),
-                     'BT_obj':(['time','y','x'],objects_id_bt),
+    fino=xr.Dataset({'MCS_objects':(['time','y','x'],objects_id_MCS),
+                     'PR':(['time','y','x'],pr_data),
+                     'PR_objects':(['time','y','x'],objects_id_pr),
+                     'BT':(['time','y','x'],bt_data),
+                     'BT_objects':(['time','y','x'],objects_id_bt),
                      'lat':(['y','x'],Lat),
                      'lon':(['y','x'],Lon)},
                      coords={'time':times.values})
 
-    fino.to_netcdf(NCfile,mode='w',encoding={'PR_real':{'zlib': True,'complevel': 5},
-                                             'PR_obj':{'zlib': True,'complevel': 5},
-                                             'BT_real':{'zlib': True,'complevel': 5},
-                                             'BT_obj':{'zlib': True,'complevel': 5}})
-    end = time.perf_counter()
-    timer(start, end)
-    #
+    fino.to_netcdf(nc_file,mode='w',encoding={'PR':{'zlib': True,'complevel': 5},
+                                             'PR_objects':{'zlib': True,'complevel': 5},
+                                             'BT':{'zlib': True,'complevel': 5},
+                                             'BT_objects':{'zlib': True,'complevel': 5},
+                                             'MCS_objects':{'zlib': True,'complevel': 5}})
+
+    
     # fino = xr.Dataset({
     # 'MCS_objects': xr.DataArray(
     #             data   = objects_id_MCS,   # enter data here
     #             dims   = ['time','y','x'],
-    #             coords = {'time': times},
+    #             coords={'time':times.values},
     #             attrs  = {
     #                 '_FillValue': const.missingval,
     #                 'long_name': 'Mesoscale Convective System objects',
@@ -734,7 +726,7 @@ def MCStracking(
     # 'PR_objects': xr.DataArray(
     #             data   = objects_id_pr,   # enter data here
     #             dims   = ['time','y','x'],
-    #             coords = {'time': times},
+    #             coords={'time':times.values},
     #             attrs  = {
     #                 '_FillValue': const.missingval,
     #                 'long_name': 'Precipitation objects',
@@ -744,7 +736,7 @@ def MCStracking(
     # 'BT_objects': xr.DataArray(
     #             data   = objects_id_bt,   # enter data here
     #             dims   = ['time','y','x'],
-    #             coords = {'time': times},
+    #             coords={'time':times.values},
     #             attrs  = {
     #                 '_FillValue': const.missingval,
     #                 'long_name': 'Cloud (brightness temperature) objects',
@@ -754,7 +746,7 @@ def MCStracking(
     # 'PR': xr.DataArray(
     #             data   = pr_data,   # enter data here
     #             dims   = ['time','y','x'],
-    #             coords = {'time': times},
+    #             coords={'time':times.values},
     #             attrs  = {
     #                 '_FillValue': const.missingval,
     #                 'long_name': 'Precipitation',
@@ -765,7 +757,7 @@ def MCStracking(
     # 'BT': xr.DataArray(
     #             data   = bt_data,   # enter data here
     #             dims   = ['time','y','x'],
-    #             coords = {'time': times},
+    #             coords={'time':times.values},
     #             attrs  = {
     #                 '_FillValue': const.missingval,
     #                 'long_name': 'Brightness temperature',
@@ -797,14 +789,18 @@ def MCStracking(
     #     attrs = {'date':datetime.date.today().strftime('%Y-%m-%d'),
     #              "comments": "File created with MCS_tracking"}
     # )
-    #
-    #
-    # fino.to_netcdf(NCfile,mode='w',format = "NETCDF4",
+    
+    
+    # fino.to_netcdf(nc_file,mode='w',format = "NETCDF4",
     #                encoding={'PR':{'zlib': True,'complevel': 5},
     #                          'PR_objects':{'zlib': True,'complevel': 5},
     #                          'BT':{'zlib': True,'complevel': 5},
     #                          'BT_objects':{'zlib': True,'complevel': 5}})
 
+
+    end_time = time.time()
+    print(f"======> 'Writing files: {(end_time-start_time):.2f} seconds \n")
+    start_time = time.time()
     ###########################################################
     ###########################################################
     # ============================

@@ -21,7 +21,6 @@
 #####################################################################
 """
 from glob import glob
-import datetime
 import time
 
 import xarray as xr
@@ -54,6 +53,10 @@ def main():
 def storm_tracking(pr_finname):
     """ Initialize the algorithm loading data from postprocessed WRF
     """
+
+
+    start_time = time.time()
+
     olr = (
         xr.open_dataset(f"{pr_finname.replace('RAIN','OLR')}")
         .isel(time=slice(216, 240))
@@ -68,33 +71,26 @@ def storm_tracking(pr_finname):
     lat = pr.lat.values
     lon = pr.lon.values
 
-    sdate = datetime.datetime(
-        int(pr.time.isel(time=0).dt.year),
-        int(pr.time.isel(time=0).dt.month),
-        int(pr.time.isel(time=0).dt.day),
-        int(pr.time.isel(time=0).dt.hour),
-    )
-    edate = datetime.datetime(
-        int(pr.time.isel(time=-1).dt.year),
-        int(pr.time.isel(time=-1).dt.month),
-        int(pr.time.isel(time=-1).dt.day),
-        int(pr.time.isel(time=-1).dt.hour),
-    )
-    times = pd.date_range(sdate, end=edate, freq='1H')
+    times = pd.date_range(pr.time.isel(time=0).values, end=pr.time.isel(time=-1).values, freq='1H')
 
+    end_time = time.time()
+    print(f"======> 'Loading data: {(end_time-start_time):.2f} seconds \n")
+    
     ###########################################################
     ###########################################################
 
-    start_time = time.time()
+
 
     fileout = pr_finname.replace("RAIN", "Storms")
+
+
     _,_ = MCStracking(
         pr_data,
         bt_data,
         times,
         lon,
         lat,
-        NCfile          =   fileout,
+        nc_file          =   fileout,
     )
 
     end_time = time.time()
