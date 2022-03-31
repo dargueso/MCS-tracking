@@ -45,9 +45,9 @@ def test_MCStracking():
             lat,
             nc_file          =   None,
         )
-    assert MCS_objects.max() == 17
 
-    # import pdb; pdb.set_trace()
-    # assert grMCSs['1']['rgrPR_Vol'].max() == 17591.914
-    # assert grMCSs['7']['rgrPR_Vol'][4] == 9674.66
-    # assert grMCSs['2']['rgrPR_Max'][-1] == 10.741204
+
+    assert MCS_objects.max() == 17
+    assert float(grMCSs['1']['rgrPR_Vol'].max())== 17591.9140625
+    assert float(grMCSs['7']['rgrPR_Vol'][4]) == 9674.66015625
+    assert float(grMCSs['2']['rgrPR_Max'][-1]) == 10.741204261779785
