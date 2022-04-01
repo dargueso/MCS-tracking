@@ -7,6 +7,7 @@ from scipy import ndimage
 from constants import const
 from tracking_functions_optimized import calc_grid_distance_area
 from tracking_functions_optimized import calculate_area_objects
+from tracking_functions_optimized import remove_small_short_objects
 from tracking_functions_optimized import MCStracking
 
 def test_area_simple():
@@ -67,3 +68,22 @@ def test_area_obj():
     assert len(area_objects) == 2
     assert area_objects[0] == [15.0,15.0,15.0]
     assert area_objects[1] == [8.0,8.0]
+
+def test_remove_small_short_objects():
+
+    test_obj_id=np.zeros((10,10,10),dtype=int)
+    test_obj_id[2:5,4:9,5:8]=1
+    test_obj_id[6:8,4:8,5:7]=2
+    test_obj_id[5:6,3:9,3:7]=2
+
+    #Using a dx and dy of 2000m
+    #The areas are
+
+    test_object_indices = ndimage.find_objects(test_obj_id)
+    area_objects = np.array([[60000000,60000000,60000000],[24000000,32000000,32000000]], dtype=object)
+
+    large_obj_id = remove_small_short_objects(test_obj_id,area_objects,30,3,1)
+
+
+    assert int(large_obj_id[large_obj_id==1].sum()) == 45
+    assert int(large_obj_id[large_obj_id==2].sum()) == 0
