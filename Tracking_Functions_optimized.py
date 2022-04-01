@@ -705,7 +705,6 @@ def MCStracking(
     # 'MCS_objects': xr.DataArray(
     #             data   = objects_id_MCS,   # enter data here
     #             dims   = ['time','y','x'],
-    #             coords={'time':times.values},
     #             attrs  = {
     #                 '_FillValue': const.missingval,
     #                 'long_name': 'Mesoscale Convective System objects',
@@ -715,7 +714,6 @@ def MCStracking(
     # 'PR_objects': xr.DataArray(
     #             data   = objects_id_pr,   # enter data here
     #             dims   = ['time','y','x'],
-    #             coords={'time':times.values},
     #             attrs  = {
     #                 '_FillValue': const.missingval,
     #                 'long_name': 'Precipitation objects',
@@ -725,7 +723,6 @@ def MCStracking(
     # 'BT_objects': xr.DataArray(
     #             data   = objects_id_bt,   # enter data here
     #             dims   = ['time','y','x'],
-    #             coords={'time':times.values},
     #             attrs  = {
     #                 '_FillValue': const.missingval,
     #                 'long_name': 'Cloud (brightness temperature) objects',
@@ -735,7 +732,6 @@ def MCStracking(
     # 'PR': xr.DataArray(
     #             data   = pr_data,   # enter data here
     #             dims   = ['time','y','x'],
-    #             coords={'time':times.values},
     #             attrs  = {
     #                 '_FillValue': const.missingval,
     #                 'long_name': 'Precipitation',
@@ -746,7 +742,6 @@ def MCStracking(
     # 'BT': xr.DataArray(
     #             data   = bt_data,   # enter data here
     #             dims   = ['time','y','x'],
-    #             coords={'time':times.values},
     #             attrs  = {
     #                 '_FillValue': const.missingval,
     #                 'long_name': 'Brightness temperature',
@@ -776,7 +771,8 @@ def MCStracking(
     #             ),
     #         },
     #     attrs = {'date':datetime.date.today().strftime('%Y-%m-%d'),
-    #              "comments": "File created with MCS_tracking"}
+    #              "comments": "File created with MCS_tracking"},
+    #     coords={'time':times.values}
     # )
 
 
