@@ -50,9 +50,9 @@ def test_MCStracking():
 
 
     assert MCS_objects.max() == 17
-    assert float(grMCSs['1']['rgrPR_Vol'].max())== 17591.9140625
-    assert float(grMCSs['7']['rgrPR_Vol'][4]) == 9674.66015625
-    assert float(grMCSs['2']['rgrPR_Max'][-1]) == 10.741204261779785
+    assert float(grMCSs['1']['tot'].max())== 17591.9140625
+    assert float(grMCSs['7']['tot'][4]) == 9674.66015625
+    assert float(grMCSs['2']['max'][-1]) == 10.741204261779785
 
 
 def test_area_obj():
