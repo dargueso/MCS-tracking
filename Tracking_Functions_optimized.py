@@ -135,13 +135,11 @@ def remove_small_short_objects(objects_id,area_objects,min_area,min_time,DT):
 
 ###########################################################
 ###########################################################
-
-
 def calc_object_characteristics(
-    PR_objectsFull,  # feature object file
-    PR_orig,  # original file used for feature detection
-    SaveFile,  # output file name and locaiton
-    TIME,  # timesteps of the data
+    var_objects,  # feature object file
+    var_data,  # original file used for feature detection
+    filename_out,  # output file name and locaiton
+    times,  # timesteps of the data
     Lat,  # 2D latidudes
     Lon,  # 2D Longitudes
     grid_spacing,  # average grid spacing
@@ -150,96 +148,76 @@ def calc_object_characteristics(
     ):
     # ========
 
-    num_objects = PR_objectsFull.max()
+    num_objects = int(var_objects.max())
+    object_indices = ndimage.find_objects(var_objects)
 
     if num_objects >= 1:
-        grObject = {}
-        print("            Loop over " + str(PR_objectsFull.max()) + " objects")
-        for ob in range(int(PR_objectsFull.max())):
+        objects_charac = {}
+        print("            Loop over " + str(num_objects) + " objects")
+        for iobj in range(num_objects):
 
-            TT = np.sum((PR_objectsFull == (ob + 1)), axis=(1, 2)) > 0
-            if sum(TT) >= min_tsteps:
-                pr_object = np.copy(PR_objectsFull[TT, :, :])
-                pr_object[pr_object != (ob + 1)] = 0
-                object_indices = ndimage.find_objects(pr_object)
-                if len(object_indices) > 1:
-                    object_indices = [
-                        object_indices[np.where(np.array(object_indices, dtype=object) != None)[0][0]]
-                    ]
-                ObjAct = pr_object[object_indices[0]]
-                ValAct = PR_orig[TT, :, :][object_indices[0]]
-                ValAct[ObjAct == 0] = np.nan
-                AreaAct = np.repeat(
-                    grid_cell_area[object_indices[0][1:]][None, :, :], ValAct.shape[0], axis=0
-                )
-                AreaAct[ObjAct == 0] = np.nan
-                LatAct = np.copy(Lat[object_indices[0][1:]])
-                LonAct = np.copy(Lon[object_indices[0][1:]])
+            object_slice = np.copy(var_objects[object_indices[iobj]])
+            data_slice   = np.copy(var_data[object_indices[iobj]])
+            time_idx_slice = object_indices[iobj][0]
+            lat_idx_slice  = object_indices[iobj][1]
+            lon_idx_slice  = object_indices[iobj][2]
+
+            if len(object_slice) >= min_tsteps:
+
+                data_slice[object_slice!=(iobj + 1)] = np.nan
+                grid_cell_area_slice = np.tile(grid_cell_area[lat_idx_slice, lon_idx_slice], (len(data_slice), 1, 1))
+                grid_cell_area_slice[object_slice != (iobj + 1)] = np.nan
+                lat_slice = Lat[lat_idx_slice, lon_idx_slice]
+                lon_slice = Lon[lat_idx_slice, lon_idx_slice]
+
 
                 # calculate statistics
-                TimeAct = TIME[TT]
-                rgrSize = np.nansum(AreaAct, axis=(1, 2))
-                rgrPR_Min = np.nanmin(ValAct, axis=(1, 2))
-                rgrPR_Max = np.nanmax(ValAct, axis=(1, 2))
-                rgrPR_Mean = np.nanmean(ValAct, axis=(1, 2))
-                rgrPR_Vol = np.nansum(ValAct, axis=(1, 2))
+                obj_times = times[time_idx_slice]
+                obj_size  = np.nansum(grid_cell_area_slice, axis=(1, 2))
+                obj_pr_min = np.nanmin(data_slice, axis=(1, 2))
+                obj_pr_max = np.nanmax(data_slice, axis=(1, 2))
+                obj_pr_mean = np.nanmean(data_slice, axis=(1, 2))
+                obj_pr_vol = np.nansum(data_slice, axis=(1, 2))
+
 
                 # Track lat/lon
-                rgrMassCent = np.array(
-                    [
-                        ndimage.measurements.center_of_mass(ObjAct[tt, :, :])
-                        for tt in range(ObjAct.shape[0])
-                    ]
-                )
-                TrackAll = np.zeros((len(rgrMassCent), 2))
-                TrackAll[:] = np.nan
-                try:
-                    for ii,_ in enumerate(rgrMassCent):
-                        if ~np.isnan(rgrMassCent[ii, 0]) == True:
-                            TrackAll[ii, 1] = LatAct[
-                                int(np.round(rgrMassCent[ii][0], 0)),
-                                int(np.round(rgrMassCent[ii][1], 0)),
-                            ]
-                            TrackAll[ii, 0] = LonAct[
-                                int(np.round(rgrMassCent[ii][0], 0)),
-                                int(np.round(rgrMassCent[ii][1], 0)),
-                            ]
-                except:
-                    stop()
+                obj_mass_center = \
+                np.array([ndimage.measurements.center_of_mass(object_slice[tt,:,:]==(iobj+1)) for tt in range(object_slice.shape[0])])
 
-                rgrObjSpeed = np.array(
-                    [
-                        (
-                            (rgrMassCent[tt, 0] - rgrMassCent[tt + 1, 0]) ** 2
-                            + (rgrMassCent[tt, 1] - rgrMassCent[tt + 1, 1]) ** 2
-                        )
-                        ** 0.5
-                        for tt in range(ValAct.shape[0] - 1)
-                    ]
-                ) * (grid_spacing / 1000.0)
+                obj_track = np.full([len(obj_mass_center), 2], np.nan)
 
-                grAct = {
-                    "rgrMassCent": rgrMassCent,
-                    "rgrObjSpeed": rgrObjSpeed,
-                    "rgrPR_Vol": rgrPR_Vol,
-                    "rgrPR_Min": rgrPR_Min,
-                    "rgrPR_Max": rgrPR_Max,
-                    "rgrPR_Mean": rgrPR_Mean,
-                    "rgrSize": rgrSize,
+                obj_track[:,0]=np.array([lat_slice[int(round(obj_loc[0])),int(round(obj_loc[1]))]    for tstep, obj_loc in enumerate(obj_mass_center)])
+                obj_track[:,1]=np.array([lon_slice[int(round(obj_loc[0])),int(round(obj_loc[1]))]    for tstep, obj_loc in enumerate(obj_mass_center)])
+
+                if np.any(np.isnan(obj_track)):
+                    raise ValueError("track array contains NaNs")
+
+                obj_speed = (np.sum(np.diff(obj_mass_center,axis=0)**2,axis=1)**0.5) * (grid_spacing / 1000.0)
+
+                this_object_charac = {
+                    "rgrMassCent": obj_mass_center,
+                    "rgrObjSpeed": obj_speed,
+                    "rgrPR_Vol": obj_pr_vol,
+                    "rgrPR_Min": obj_pr_min,
+                    "rgrPR_Max": obj_pr_max,
+                    "rgrPR_Mean": obj_pr_mean,
+                    "rgrSize": obj_size,
                     #                        'rgrAccumulation':rgrAccumulation,
-                    "TimeAct": TimeAct,
-                    "rgrMassCentLatLon": TrackAll,
+                    "TimeAct": obj_times,
+                    "rgrMassCentLatLon": obj_track,
                 }
-                try:
-                    grObject[str(ob + 1)] = grAct
-                except:
-                    stop()
-                    continue
-        if SaveFile is not None:
-            with open('SaveFile', 'wb') as handle:
-                pickle.dump(grObject, handle)
 
-        return grObject
+                try:
+                    objects_charac[str(iobj + 1)] = this_object_charac
+                except:
+                    raise ValueError ("Error asigning properties to final dictionary")
+
+        if filename_out is not None:
+            with open(filename_out, 'wb') as handle:
+                pickle.dump(objects_charac, handle)
+
+        return objects_charac
+
 
 # ==============================================================
 # ==============================================================
@@ -262,9 +240,9 @@ def ConnectLon(object_indices):
         OBJ_joint = OBJ_joint[NotSame]
         OBJ_unique = np.unique(OBJ_joint)
         # set the eastern object to the number of the western object in all timesteps
-        for ob,_ in enumerate(OBJ_unique):
-            ObE = int(OBJ_unique[ob].split("_")[1])
-            ObW = int(OBJ_unique[ob].split("_")[0])
+        for obj,_ in enumerate(OBJ_unique):
+            ObE = int(OBJ_unique[obj].split("_")[1])
+            ObW = int(OBJ_unique[obj].split("_")[0])
             object_indices[object_indices == ObE] = ObW
     return object_indices
 
@@ -287,24 +265,24 @@ def BreakupObjects(
     rgiObjects2D, nr_objects2D = ndimage.label(DATA, structure=obj_structure_2D)
 
     rgiObjNrs = np.unique(DATA)[1:]
-    TT = np.array([object_indices[ob][0].stop - object_indices[ob][0].start for ob in range(MaxOb)])
+    TT = np.array([object_indices[obj][0].stop - object_indices[obj][0].start for obj in range(MaxOb)])
     # Sel_Obj = rgiObjNrs[TT > MinLif]
 
     # Average 2D objects in 3D objects?
     Av_2Dob = np.zeros((len(rgiObjNrs)))
     Av_2Dob[:] = np.nan
     ii = 1
-    for ob,_ in enumerate(rgiObjNrs):
-        #         if TT[ob] <= MinLif:
+    for obj,_ in enumerate(rgiObjNrs):
+        #         if TT[obj] <= MinLif:
         #             # ignore short lived objects
         #             continue
-        SelOb = rgiObjNrs[ob] - 1
+        SelOb = rgiObjNrs[obj] - 1
         DATA_ACT = np.copy(DATA[object_indices[SelOb]])
-        iOb = rgiObjNrs[ob]
+        iOb = rgiObjNrs[obj]
         rgiObjects2D_ACT = np.copy(rgiObjects2D[object_indices[SelOb]])
         rgiObjects2D_ACT[DATA_ACT != iOb] = 0
 
-        Av_2Dob[ob] = np.mean(
+        Av_2Dob[obj] = np.mean(
             np.array(
                 [
                     len(np.unique(rgiObjects2D_ACT[tt, :, :])) - 1
@@ -312,7 +290,7 @@ def BreakupObjects(
                 ]
             )
         )
-        if Av_2Dob[ob] > AVmax:
+        if Av_2Dob[obj] > AVmax:
             ObjectArray_ACT = np.copy(DATA_ACT)
             ObjectArray_ACT[:] = 0
             rgiObAct = np.unique(rgiObjects2D_ACT[0, :, :])[1:]
@@ -382,14 +360,14 @@ def BreakupObjects(
     object_indices = ndimage.find_objects(DATA)
     rgiVolObj = np.array(
         [
-            np.sum(DATA[object_indices[Unique[ob] - 1]] == Unique[ob])
-            for ob,_ in enumerate(Unique)
+            np.sum(DATA[object_indices[Unique[obj] - 1]] == Unique[obj])
+            for obj,_ in enumerate(Unique)
         ]
     )
     TT = np.array(
         [
-            object_indices[Unique[ob] - 1][0].stop - object_indices[Unique[ob] - 1][0].start
-            for ob,_ in enumerate(Unique)
+            object_indices[Unique[obj] - 1][0].stop - object_indices[Unique[obj] - 1][0].start
+            for obj,_ in enumerate(Unique)
         ]
     )
 
@@ -397,9 +375,9 @@ def BreakupObjects(
     CY_objectsTMP = np.copy(DATA)
     CY_objectsTMP[:] = 0
     ii = 1
-    for ob,_ in enumerate(rgiVolObj):
-        if TT[ob] >= min_tsteps / dT:
-            CY_objectsTMP[DATA == Unique[ob]] = ii
+    for obj,_ in enumerate(rgiVolObj):
+        if TT[obj] >= min_tsteps / dT:
+            CY_objectsTMP[DATA == Unique[obj]] = ii
             ii = ii + 1
 
     # lable the objects from 1 to N
@@ -407,8 +385,8 @@ def BreakupObjects(
     DATA_fin[:] = 0
     Unique = np.unique(CY_objectsTMP)[1:]
     ii = 1
-    for ob,_ in enumerate(Unique):
-        DATA_fin[CY_objectsTMP == Unique[ob]] = ii
+    for obj,_ in enumerate(Unique):
+        DATA_fin[CY_objectsTMP == Unique[obj]] = ii
         ii = ii + 1
 
     return DATA_fin
