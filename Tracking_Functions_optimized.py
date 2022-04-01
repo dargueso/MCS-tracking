@@ -174,10 +174,10 @@ def calc_object_characteristics(
                 # calculate statistics
                 obj_times = times[time_idx_slice]
                 obj_size  = np.nansum(grid_cell_area_slice, axis=(1, 2))
-                obj_pr_min = np.nanmin(data_slice, axis=(1, 2))
-                obj_pr_max = np.nanmax(data_slice, axis=(1, 2))
-                obj_pr_mean = np.nanmean(data_slice, axis=(1, 2))
-                obj_pr_vol = np.nansum(data_slice, axis=(1, 2))
+                obj_min = np.nanmin(data_slice, axis=(1, 2))
+                obj_max = np.nanmax(data_slice, axis=(1, 2))
+                obj_mean = np.nanmean(data_slice, axis=(1, 2))
+                obj_tot = np.nansum(data_slice, axis=(1, 2))
 
 
                 # Track lat/lon
@@ -195,22 +195,23 @@ def calc_object_characteristics(
                 obj_speed = (np.sum(np.diff(obj_mass_center,axis=0)**2,axis=1)**0.5) * (grid_spacing / 1000.0)
 
                 this_object_charac = {
-                    "rgrMassCent": obj_mass_center,
-                    "rgrObjSpeed": obj_speed,
-                    "rgrPR_Vol": obj_pr_vol,
-                    "rgrPR_Min": obj_pr_min,
-                    "rgrPR_Max": obj_pr_max,
-                    "rgrPR_Mean": obj_pr_mean,
-                    "rgrSize": obj_size,
+                    "mass_center_loc": obj_mass_center,
+                    "speed": obj_speed,
+                    "tot": obj_tot,
+                    "min": obj_min,
+                    "max": obj_max,
+                    "mean": obj_mean,
+                    "size": obj_size,
                     #                        'rgrAccumulation':rgrAccumulation,
-                    "TimeAct": obj_times,
-                    "rgrMassCentLatLon": obj_track,
+                    "times": obj_times,
+                    "track": obj_track,
                 }
 
                 try:
                     objects_charac[str(iobj + 1)] = this_object_charac
                 except:
                     raise ValueError ("Error asigning properties to final dictionary")
+
 
         if filename_out is not None:
             with open(filename_out, 'wb') as handle:
