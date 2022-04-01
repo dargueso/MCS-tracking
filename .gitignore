@@ -14,3 +14,5 @@ Clouds_201607
 *.pyc
 *.pyc
 __pycache__/Tracking_Functions_optimized.cpython-38.pyc
+!RAIN_test.nc
+!OLR_test.nc
