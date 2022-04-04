@@ -123,6 +123,7 @@ def remove_small_short_objects(objects_id,area_objects,min_area,min_time,DT):
                 mode="valid",
             )
         )
+
         if (AreaTest == int(min_time/ DT)) & (
             len(area_objects[obj]) >= int(min_time/ DT)
         ):
@@ -162,7 +163,8 @@ def calc_object_characteristics(
             lat_idx_slice  = object_indices[iobj][1]
             lon_idx_slice  = object_indices[iobj][2]
 
-            if len(object_slice) >= min_tsteps:
+            #if len(object_slice) >= min_tsteps:
+            if len(np.sum(np.any(object_slice==iobj+1,axis=(1,2)))) >= min_tsteps:
 
                 data_slice[object_slice!=(iobj + 1)] = np.nan
                 grid_cell_area_slice = np.tile(grid_cell_area[lat_idx_slice, lon_idx_slice], (len(data_slice), 1, 1))
@@ -184,8 +186,11 @@ def calc_object_characteristics(
                 obj_mass_center = \
                 np.array([ndimage.measurements.center_of_mass(object_slice[tt,:,:]==(iobj+1)) for tt in range(object_slice.shape[0])])
 
-                obj_track = np.full([len(obj_mass_center), 2], np.nan)
+                if np.any(np.isnan(obj_mass_center)):
+                    raise ValueError("mass center array contains NaNs")
 
+                obj_track = np.full([len(obj_mass_center), 2], np.nan)
+                
                 obj_track[:,0]=np.array([lat_slice[int(round(obj_loc[0])),int(round(obj_loc[1]))]    for tstep, obj_loc in enumerate(obj_mass_center)])
                 obj_track[:,1]=np.array([lon_slice[int(round(obj_loc[0])),int(round(obj_loc[1]))]    for tstep, obj_loc in enumerate(obj_mass_center)])
 
@@ -520,8 +525,8 @@ def MCStracking(
     print(f"======> 'Tracking clouds: {(end_time-start_time):.2f} seconds \n")
     start_time = time.time()
 
-    print("            break up long living cloud shield objects that heve many elements")
-    bt_objects = BreakupObjects(bt_objects, int(min_time_bt / DT), DT)
+    #print("            break up long living cloud shield objects that heve many elements")
+    #bt_objects = BreakupObjects(bt_objects, int(min_time_bt / DT), DT)
 
     end_time = time.time()
     print(f"======> 'Breaking up cloud objects: {(end_time-start_time):.2f} seconds \n")
