@@ -15,6 +15,7 @@ import pickle
 from itertools import groupby
 import datetime
 import time
+import logging
 
 
 import numpy as np
@@ -154,7 +155,7 @@ def calc_object_characteristics(
 
     if num_objects >= 1:
         objects_charac = {}
-        print("            Loop over " + str(num_objects) + " objects")
+        logging.debug("            Loop over " + str(num_objects) + " objects")
         for iobj in range(num_objects):
 
             object_slice = np.copy(var_objects[object_indices[iobj]])
@@ -164,7 +165,7 @@ def calc_object_characteristics(
             lon_idx_slice  = object_indices[iobj][2]
 
             #if len(object_slice) >= min_tsteps:
-            if len(np.sum(np.any(object_slice==iobj+1,axis=(1,2)))) >= min_tsteps:
+            if np.sum(np.any(object_slice==iobj+1,axis=(1,2))) >= min_tsteps:
 
                 data_slice[object_slice!=(iobj + 1)] = np.nan
                 grid_cell_area_slice = np.tile(grid_cell_area[lat_idx_slice, lon_idx_slice], (len(data_slice), 1, 1))
@@ -190,7 +191,7 @@ def calc_object_characteristics(
                     raise ValueError("mass center array contains NaNs")
 
                 obj_track = np.full([len(obj_mass_center), 2], np.nan)
-                
+
                 obj_track[:,0]=np.array([lat_slice[int(round(obj_loc[0])),int(round(obj_loc[1]))]    for tstep, obj_loc in enumerate(obj_mass_center)])
                 obj_track[:,1]=np.array([lon_slice[int(round(obj_loc[0])),int(round(obj_loc[1]))]    for tstep, obj_loc in enumerate(obj_mass_center)])
 
@@ -451,19 +452,19 @@ def MCStracking(
         crosses_dateline = True
 
     end_time = time.time()
-    print(f"======> 'Initialize MCS tracking function: {(end_time-start_time):.2f} seconds \n")
+    logging.debug(f"======> 'Initialize MCS tracking function: {(end_time-start_time):.2f} seconds \n")
     start_time = time.time()
     # --------------------------------------------------------
     # TRACKING PRECIP OBJECTS
     # --------------------------------------------------------
-    print("        track  precipitation")
+    logging.debug("        track  precipitation")
 
     pr_smooth= filters.gaussian_filter(
         pr_data, sigma=(0, smooth_sigma_pr, smooth_sigma_pr)
     )
     pr_mask = pr_smooth >= thres_pr * DT
     objects_id_pr, num_objects = ndimage.label(pr_mask, structure=obj_structure_3D)
-    print("            " + str(num_objects) + " precipitation object found")
+    logging.debug("            " + str(num_objects) + " precipitation object found")
 
     # connect objects over date line
     if crosses_dateline:
@@ -493,22 +494,22 @@ def MCStracking(
     )
 
     end_time = time.time()
-    print(f"======> 'Tracking precip: {(end_time-start_time):.2f} seconds \n")
+    logging.debug(f"======> 'Tracking precip: {(end_time-start_time):.2f} seconds \n")
     start_time = time.time()
     # --------------------------------------------------------
     # TRACKING CLOUD (BT) OBJECTS
     # --------------------------------------------------------
-    print("            track  clouds")
+    logging.debug("            track  clouds")
     bt_smooth = filters.gaussian_filter(
         bt_data, sigma=(0, smooth_sigma_bt, smooth_sigma_bt)
     )
     bt_mask = bt_smooth <= thres_bt
     objects_id_bt, num_objects = ndimage.label(bt_mask, structure=obj_structure_3D)
-    print("            " + str(num_objects) + " cloud object found")
+    logging.debug("            " + str(num_objects) + " cloud object found")
 
     # connect objects over date line
     if crosses_dateline:
-        print("            connect cloud objects over date line")
+        logging.debug("            connect cloud objects over date line")
         objects_id_bt = ConnectLon(objects_id_bt)
 
     # get indices of object to reduce memory requirements during manipulation
@@ -522,14 +523,14 @@ def MCStracking(
     bt_objects = remove_small_short_objects(objects_id_bt,area_objects,min_area_bt,min_time_bt,DT)
 
     end_time = time.time()
-    print(f"======> 'Tracking clouds: {(end_time-start_time):.2f} seconds \n")
+    logging.debug(f"======> 'Tracking clouds: {(end_time-start_time):.2f} seconds \n")
     start_time = time.time()
 
-    #print("            break up long living cloud shield objects that heve many elements")
+    #logging.debug("            break up long living cloud shield objects that heve many elements")
     #bt_objects = BreakupObjects(bt_objects, int(min_time_bt / DT), DT)
 
     end_time = time.time()
-    print(f"======> 'Breaking up cloud objects: {(end_time-start_time):.2f} seconds \n")
+    logging.debug(f"======> 'Breaking up cloud objects: {(end_time-start_time):.2f} seconds \n")
     start_time = time.time()
 
     grCs = calc_object_characteristics(
@@ -544,13 +545,13 @@ def MCStracking(
         min_tsteps=int(min_time_bt / DT), # minimum lifetime in data timesteps
     )
     end_time = time.time()
-    print(f"======> 'Calculate cloud characteristics: {(end_time-start_time):.2f} seconds \n")
+    logging.debug(f"======> 'Calculate cloud characteristics: {(end_time-start_time):.2f} seconds \n")
     start_time = time.time()
     # --------------------------------------------------------
     # CHECK IF PR OBJECTS QUALIFY AS MCS
     # (or selected strom type according to msc_config.py)
     # --------------------------------------------------------
-    print("            check if pr objects quallify as MCS (or selected storm type)")
+    logging.debug("            check if pr objects quallify as MCS (or selected storm type)")
     # check if precipitation object is from an MCS
     object_indices = ndimage.find_objects(pr_objects)
     MCS_objects = np.zeros(pr_objects.shape,dtype=int)
@@ -659,7 +660,7 @@ def MCStracking(
     )
 
     end_time = time.time()
-    print(f"======> 'MCS tracking: {(end_time-start_time):.2f} seconds \n")
+    logging.debug(f"======> 'MCS tracking: {(end_time-start_time):.2f} seconds \n")
     start_time = time.time()
 
 
@@ -667,7 +668,7 @@ def MCStracking(
     ###########################################################
     ## WRite netCDF with xarray
     if nc_file is not None:
-        print ('Save objects into a netCDF')
+        logging.debug ('Save objects into a netCDF')
 
         fino=xr.Dataset({'MCS_objects':(['time','y','x'],objects_id_MCS),
                          'PR':(['time','y','x'],pr_data),
@@ -768,10 +769,10 @@ def MCStracking(
 
 
         end_time = time.time()
-        print(f"======> 'Writing files: {(end_time-start_time):.2f} seconds \n")
+        logging.debug(f"======> 'Writing files: {(end_time-start_time):.2f} seconds \n")
         start_time = time.time()
     else:
-        print(f"No writing files required, output file name is empty")
+        logging.debug(f"No writing files required, output file name is empty")
     ###########################################################
     ###########################################################
     # ============================
