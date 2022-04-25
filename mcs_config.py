@@ -1,6 +1,6 @@
 
-path_in = "/vg6/dargueso-NO-BKUP/postprocessed/unified/EPICC/EPICC_2km_ERA5_HVC_GWD/"
-#path_in = "/Users/daniel/Scripts/MCS-tracking"
+#path_in = "/vg6/dargueso-NO-BKUP/postprocessed/unified/EPICC/EPICC_2km_ERA5_HVC_GWD/"
+path_in = "/Users/daniel/Scripts_local/MCS-tracking"
 ## MCS config
 DT = 1 # time step of data in hours
 Variables = ["PR", "Tb"]
