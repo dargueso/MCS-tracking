@@ -10,7 +10,7 @@ Variables = ["PR", "Tb"]
 smooth_sigma_pr = 0 # Gaussion std for precipitation smoothing
 thres_pr = 5  # precipitation threshold [mm/h]
 min_time_pr= 3  # minum lifetime of PR feature in hours
-min_area_pr = 500  # minimum area of precipitation feature in km2
+min_area_pr = 1000  # minimum area of precipitation feature in km2
 
 # Brightness temperature (Tb) tracking setup
 smooth_sigma_bt = 0  # Gaussion std for Tb smoothing
