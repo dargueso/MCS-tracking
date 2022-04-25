@@ -59,9 +59,9 @@ def start_logger_if_necessary():
 def main():
     """ Main program: loops over available files and parallelize storm tracking
     """
-    start_logger_if_necessary()
+    #start_logger_if_necessary()
     filesin = sorted(
-        glob(f"{cfg.path_in}/UIB_01H_RAIN_201[1-9]-??.nc")
+        glob(f"{cfg.path_in}/UIB_01H_RAIN_20??-??.nc")
     )
 
 
