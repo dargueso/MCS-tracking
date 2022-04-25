@@ -484,7 +484,7 @@ def MCStracking(
     grPRs = calc_object_characteristics(
         pr_objects,  # feature object file
         pr_data,  # original file used for feature detection
-        f"PR_{start_day.year}{start_day.month:02d}",
+        f"{cfg.path_in}/PR_{start_day.year}{start_day.month:02d}",
         times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
@@ -536,7 +536,7 @@ def MCStracking(
     grCs = calc_object_characteristics(
         bt_objects,  # feature object file
         bt_data,  # original file used for feature detection
-        f"BT_{start_day.year}{start_day.month:02d}",
+        f"{cfg.path_in}/BT_{start_day.year}{start_day.month:02d}",
         times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
@@ -650,7 +650,7 @@ def MCStracking(
     grMCSs = calc_object_characteristics(
         objects_id_MCS,  # feature object file
         pr_data,  # original file used for feature detection
-        f"MCS_{start_day.year}{start_day.month:02d}",
+        f"{cfg.path_in}/MCS_{start_day.year}{start_day.month:02d}",
         times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
