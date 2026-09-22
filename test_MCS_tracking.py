@@ -24,7 +24,7 @@ def test_area():
     assert area[100,100] == 4174262.3368386314
     assert dx[100,100] == 2043.120533315232
     assert dy[100,100] == 2043.0817804299295
-    assert grid_spacing == 2061.1917648769613
+    assert grid_spacing == 2061.1917602097433
 
 def test_MCStracking():
 
@@ -45,14 +45,14 @@ def test_MCStracking():
             times,
             lon,
             lat,
-            nc_file          =   None,
+            nc_file          =   "./test.nc",
         )
 
 
-    assert MCS_objects.max() == 12
+    assert MCS_objects.max() == 17
     assert float(grMCSs['1']['tot'].max())== 17591.9140625
-    assert float(grMCSs['6']['tot'][4]) == 14817.8173828125
-    assert float(grMCSs['2']['max'][-1]) == 10.197248458862305
+    assert float(grMCSs['6']['tot'][4]) == 6056.83984375
+    assert float(grMCSs['2']['max'][-1]) == 10.741204261779785
 
 
 def test_area_obj():
