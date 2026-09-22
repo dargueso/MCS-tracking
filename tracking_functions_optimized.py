@@ -578,7 +578,10 @@ def MCStracking(
 
         bt_slice  = bt_data[object_indices[iobj]]
         bt_act = np.copy(bt_slice)
-        bt_act[~pr_object_act] = 0
+        try:
+            bt_act[~pr_object_act] = 0
+        except:
+            raise ValueError ("Error matching sizes of bt and or objects")
 
         bt_object_slice = bt_objects[object_indices[iobj]]
         bt_object_act = np.copy(bt_object_slice)
@@ -678,6 +681,32 @@ def MCStracking(
                          'lat':(['y','x'],Lat),
                          'lon':(['y','x'],Lon)},
                          coords={'time':times.values})
+        
+        fino.attrs = {
+                        'title': 'Convective Storms Tracking Data',
+                        'institution': 'University of the Balearic Islands',
+                        'source': f'WRF Model outputs ({cfg.wrun})',
+                        'history': f'Created on {pd.Timestamp.now()}',
+                        # Feature detection settings
+                        'smooth_sigma_pr': cfg.smooth_sigma_pr,  # Gaussian std for precipitation smoothing
+                        'thres_pr': f'{cfg.thres_pr} mm/h',  # Precipitation threshold [mm/h]
+                        'min_time_pr': f'{cfg.min_time_pr} h',  # Minimum lifetime of PR feature in hours
+                        'min_area_pr': f'{cfg.min_area_pr} km2',  # Minimum area of precipitation feature in km²
+
+                        # Brightness temperature (Tb) tracking setup
+                        'smooth_sigma_bt': cfg.smooth_sigma_bt,  # Gaussian std for Tb smoothing
+                        'thres_bt': f'{cfg.thres_bt} K',  # Minimum Tb of cloud shield
+                        'min_time_bt': f'{cfg.min_time_bt} h',  # Minimum lifetime of cloud shield in hours
+                        'min_area_bt': f'{cfg.min_area_bt} km2',  # Minimum area of cloud shield in km²
+
+                        # MCS detection settings
+                        'MCS_min_area': f'{cfg.min_area_pr} km2',  # Minimum area of MCS precipitation object in km²
+                        'MCS_thres_pr': f'{cfg.MCS_thres_pr} mm/h',  # Minimum max precipitation in mm/h
+                        'MCS_thres_peak_pr': f'{cfg.MCS_thres_peak_pr} mm/h' ,  # Minimum lifetime peak of MCS precipitation
+                        'MCS_thres_bt': f'{cfg.MCS_thres_bt} K',  # Minimum brightness temperature
+                        'MCS_min_area_bt': f'{cfg.min_area_bt} km2',  # Minimum cloud area size in km²
+                        'MCS_min_time': f'{cfg.MCS_min_time} h',  # Minimum lifetime of MCS
+                    }
 
         fino.to_netcdf(nc_file,mode='w',encoding={'PR':{'zlib': True,'complevel': 5},
                                                  'PR_objects':{'zlib': True,'complevel': 5},
