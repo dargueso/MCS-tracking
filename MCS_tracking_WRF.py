@@ -20,6 +20,7 @@
 # (https://colab.research.google.com/drive/1MrQFujQCFhesk0MCUSqB41Mx3AHEd1ua?usp=sharing)
 #####################################################################
 """
+import os
 from glob import glob
 import time
 import logging
@@ -31,7 +32,7 @@ from joblib import Parallel, delayed
 
 import mcs_config as cfg
 from constants import const
-from tracking_functions_optimized import MCStracking
+from tracking_functions_optimized import MCStracking, olr_to_tb
 
 
 
@@ -61,7 +62,7 @@ def main():
     """
     #start_logger_if_necessary()
     filesin = sorted(
-        glob(f"{cfg.path_in}/UIB_01H_RAIN_20??-??.nc")
+        glob(f"{cfg.path_in}/RAIN/UIB_01H_RAIN_20??-??.nc")
     )
 
 
@@ -70,6 +71,15 @@ def main():
 
 ###########################################################
 ###########################################################
+
+
+def rain_window_label(pr):
+    """Human-readable accumulation window of an hourly RAIN file."""
+    if "correction" in pr.attrs and "time_bnds" in pr:
+        b0, b1 = pd.to_datetime(pr.time_bnds.values[0])
+        return f"clock hour, {b0:%H:%M}-{b1:%H:%M} UTC for the first step"
+    return ("original cdo hoursum of end-stamped 10-min values: "
+            "HH-1:50 to HH:50 (10 min early)")
 
 
 def storm_tracking(pr_finname):
@@ -84,8 +94,17 @@ def storm_tracking(pr_finname):
     pr = xr.open_dataset(f"{pr_finname}").squeeze()
     # WSPD  = xr.open_dataset(f"{pr_finname.replace('RAIN','WSPD10')}").isel(time=slice(216,240)).squeeze()
 
+    # Record which rain went in, read from the file itself (not asserted in the
+    # config): its path, and the accumulation window its time bounds describe.
+    # The clock-hour files (2026-09-29) have bounds HH:00-HH+1:00; the original
+    # files have HH:00-HH:50 bounds from cdo, but their hours are 10 min early.
+    cfg.rain_source = pr_finname
+    cfg.rain_hour_window = rain_window_label(pr)
+
     pr_data = pr.RAIN.values
-    bt_data = (olr.OLR.values / const.SB_sigma) ** (0.25)
+    # Window brightness temperature; method set in mcs_config and recorded
+    # in the output attributes.
+    bt_data = olr_to_tb(olr.OLR.values, cfg.bt_method)
 
     lat = pr.lat.values
     lon = pr.lon.values
@@ -100,7 +119,12 @@ def storm_tracking(pr_finname):
 
 
 
-    fileout = pr_finname.replace("RAIN", "Storms")
+    # Its own directory per BT method, so an SB run and a YS run with the
+    # same thresholds never overwrite one another.
+    os.makedirs(cfg.path_out, exist_ok=True)
+    fileout = None
+    if getattr(cfg, "write_nc", True):
+        fileout = f"{cfg.path_out}/" + os.path.basename(pr_finname).replace("RAIN", "Storms")
 
 
     _,_ = MCStracking(
@@ -110,6 +134,7 @@ def storm_tracking(pr_finname):
         lon,
         lat,
         nc_file          =   fileout,
+        path_out         =   cfg.path_out,
     )
 
     end_time = time.time()

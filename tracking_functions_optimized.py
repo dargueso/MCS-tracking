@@ -146,7 +146,8 @@ def calc_object_characteristics(
     Lon,  # 2D Longitudes
     grid_spacing,  # average grid spacing
     grid_cell_area,
-    min_tsteps=1  # minimum lifetime in data timesteps
+    min_tsteps=1,  # minimum lifetime in data timesteps
+    calc_volume=False  # integrate the data over the object to get a volume (precipitation only)
     ):
     # ========
 
@@ -182,6 +183,20 @@ def calc_object_characteristics(
                 obj_mean = np.nanmean(data_slice, axis=(1, 2))
                 obj_tot = np.nansum(data_slice, axis=(1, 2))
 
+                # Rain volume per time step [m3]. Note that obj_tot above is a
+                # bare sum of the data over the object cells (mm per time step
+                # summed over cells), NOT a volume. The volume requires
+                # weighting each cell by its own area and converting mm -> m:
+                #     V = sum(PR [mm] * area [m2]) * 1e-3
+                # data_slice holds the accumulation per output time step
+                # (= rate * DT, consistent with the thres_pr * DT masking
+                # above), so no extra time factor is needed. Only meaningful
+                # for precipitation, hence the flag (BT objects get NaN).
+                if calc_volume:
+                    obj_vol = np.nansum(data_slice * grid_cell_area_slice, axis=(1, 2)) * 1e-3
+                else:
+                    obj_vol = np.full(obj_tot.shape, np.nan)
+
 
                 # Track lat/lon
                 obj_mass_center = \
@@ -204,6 +219,7 @@ def calc_object_characteristics(
                     "mass_center_loc": obj_mass_center,
                     "speed": obj_speed,
                     "tot": obj_tot,
+                    "volume": obj_vol,
                     "min": obj_min,
                     "max": obj_max,
                     "mean": obj_mean,
@@ -400,6 +416,36 @@ def BreakupObjects(
 
 ############################################################
 ###########################################################
+def olr_to_tb(olr, method="YS"):
+    """Brightness temperature from top-of-atmosphere OLR.
+
+    "SB": the grey-body inversion Tb = (OLR/sigma)^0.25. This is what the
+    tracker used originally, but it returns a broadband effective emission
+    temperature, not a window-channel brightness temperature: ~22 K colder than
+    MERGIR at OLR 240 W m-2.
+
+    "YS": Ohring et al. (1984) as given in Yang and Slingo (2001), which relates
+    the flux-equivalent temperature Tf to the window Tb through
+    Tf = Tb (a + b Tb), with OLR = sigma Tf^4. Inverted here for Tb. This is the
+    quantity the 241 K and 225 K cloud-shield thresholds are defined on, since
+    those come from the satellite MCS literature and refer to window radiances.
+
+    Caveat: the relation was fitted to coarse satellite radiances (Nimbus-7,
+    tens of km), so applying it per pixel at 2 km is an extrapolation. It is
+    standard practice for convection-permitting output and is in any case far
+    closer to a window Tb than the grey-body inversion, but it is worth stating.
+    """
+    tf = (olr / const.SB_sigma) ** 0.25
+    if method == "SB":
+        return tf
+    if method == "YS":
+        a, b = 1.228, -1.106e-3      # K^-1
+        return (-a + np.sqrt(a ** 2 + 4 * b * tf)) / (2 * b)
+    raise ValueError(f"unknown brightness-temperature method: {method}")
+
+
+###########################################################
+###########################################################
 #### ======================================================
 # function to perform MCS tracking
 def MCStracking(
@@ -408,7 +454,8 @@ def MCStracking(
     times,
     Lon,
     Lat,
-    nc_file
+    nc_file,
+    path_out=None  # where the PR_/BT_/MCS_ pickles go; defaults to cfg.path_in
 ):
     """ Function to track MCS from precipitation and brightness temperature
     """
@@ -444,6 +491,14 @@ def MCStracking(
     obj_structure_3D = np.ones((3,3,3))
 
     start_day = times[0]
+
+    # The object pickles used to go to cfg.path_in unconditionally, which ties
+    # the output location to whichever experiment mcs_config currently points
+    # at. Taking it as an argument lets the same tracker be pointed at the
+    # observations and at the coarsened model without editing the config.
+    if path_out is None:
+        path_out = cfg.path_in
+    os.makedirs(path_out, exist_ok=True)
 
 
     # connect over date line?
@@ -484,13 +539,14 @@ def MCStracking(
     grPRs = calc_object_characteristics(
         pr_objects,  # feature object file
         pr_data,  # original file used for feature detection
-        f"{cfg.path_in}/PR_{start_day.year}{start_day.month:02d}",
+        f"{path_out}/PR_{start_day.year}{start_day.month:02d}",
         times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
         grid_spacing,
         grid_cell_area,
         min_tsteps=int(min_time_pr/ DT), # minimum lifetime in data timesteps
+        calc_volume=True, # precipitation data -> rain volume in m3
     )
 
     end_time = time.time()
@@ -536,7 +592,7 @@ def MCStracking(
     grCs = calc_object_characteristics(
         bt_objects,  # feature object file
         bt_data,  # original file used for feature detection
-        f"{cfg.path_in}/BT_{start_day.year}{start_day.month:02d}",
+        f"{path_out}/BT_{start_day.year}{start_day.month:02d}",
         times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
@@ -653,13 +709,14 @@ def MCStracking(
     grMCSs = calc_object_characteristics(
         objects_id_MCS,  # feature object file
         pr_data,  # original file used for feature detection
-        f"{cfg.path_in}/MCS_{start_day.year}{start_day.month:02d}",
+        f"{path_out}/MCS_{start_day.year}{start_day.month:02d}",
         times,  # timesteps of the data
         Lat,  # 2D latidudes
         Lon,  # 2D Longitudes
         grid_spacing,
         grid_cell_area,
         min_tsteps=int(MCS_min_time / DT), # minimum lifetime in data timesteps
+        calc_volume=True, # precipitation data -> rain volume in m3
     )
 
     end_time = time.time()
@@ -686,6 +743,10 @@ def MCStracking(
                         'title': 'Convective Storms Tracking Data',
                         'institution': 'University of the Balearic Islands',
                         'source': f'WRF Model outputs ({cfg.wrun})',
+                        'bt_method': getattr(cfg, 'bt_method', 'SB'),
+                        # rain provenance, read from the input file by the driver
+                        'rain_source': getattr(cfg, 'rain_source', 'unknown'),
+                        'rain_hour_window': getattr(cfg, 'rain_hour_window', 'unknown'),
                         'history': f'Created on {pd.Timestamp.now()}',
                         # Feature detection settings
                         'smooth_sigma_pr': cfg.smooth_sigma_pr,  # Gaussian std for precipitation smoothing

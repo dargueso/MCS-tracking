@@ -16,3 +16,21 @@ Clouds_201607
 __pycache__/Tracking_Functions_optimized.cpython-38.pyc
 !RAIN_test.nc
 !OLR_test.nc
+
+# --- added 2026-09-29 ---------------------------------------------------
+# Manuscript drafts: Word files, not code
+*.docx
+# Run logs and captured output
+*.log
+*.out
+# Tracker output pickles, written by runs and tests (any PR_/BT_/MCS_ + YYYYMM)
+PR_[0-9][0-9][0-9][0-9][0-9][0-9]
+BT_[0-9][0-9][0-9][0-9][0-9][0-9]
+MCS_[0-9][0-9][0-9][0-9][0-9][0-9]
+# Analysis outputs written beside the plotting scripts
+Plotting/storms_*.pkl
+Plotting/check_bt_robustness_*.txt
+*.png
+# Python caches
+__pycache__/
+*.pyc
