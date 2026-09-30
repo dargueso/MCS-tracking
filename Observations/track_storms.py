@@ -30,7 +30,10 @@ import xarray as xr
 from joblib import Parallel, delayed
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import mcs_config as mcfg
+import importlib
+# mcs_config.py unless MCS_CONFIG names another module (mcs_config_sens.py for
+# the sensitivity experiments exp6 onwards)
+mcfg = importlib.import_module(os.environ.get("MCS_CONFIG", "mcs_config"))
 from tracking_functions_optimized import MCStracking
 
 import obs_config as cfg
@@ -49,7 +52,17 @@ KNOWN_EXPS = {
 
 
 def current_exp():
-    """Label for the threshold set currently in mcs_config."""
+    """Label for the threshold set currently loaded.
+
+    exp1..exp5 are recognised by their thresholds, so a drifted config cannot
+    be mislabelled. The sensitivity experiments (mcs_config_sens.py) differ in
+    other settings (lifetime, smoothing, linking, the cloud requirement) and
+    carry their label in `exp_label`, which is trusted when it is not one of
+    the threshold-defined names.
+    """
+    label = getattr(mcfg, "exp_label", None)
+    if label is not None and label not in KNOWN_EXPS.values():
+        return label
     key = (mcfg.thres_pr, mcfg.min_area_pr, mcfg.min_area_bt,
            mcfg.MCS_thres_pr, mcfg.MCS_thres_peak_pr)
     name = KNOWN_EXPS.get(key)

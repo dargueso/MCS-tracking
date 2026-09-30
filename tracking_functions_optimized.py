@@ -29,7 +29,11 @@ from scipy.ndimage import morphology
 from scipy import ndimage
 
 from constants import const
-import mcs_config as cfg
+# The tracking settings come from mcs_config.py unless MCS_CONFIG names another
+# module (the sensitivity experiments use mcs_config_sens.py); mcs_config.py
+# itself stays as the analyses that focus on exp1 expect it.
+import importlib
+cfg = importlib.import_module(os.environ.get("MCS_CONFIG", "mcs_config"))
 
 
 ###########################################################
@@ -103,6 +107,54 @@ def calculate_area_objects(objects_id_pr,object_indices,grid_cell_area):
     )
 
     return area_objects
+
+def label_objects(mask, structure_3d, min_overlap=0.0):
+    """Label objects in (time, y, x).
+
+    min_overlap == 0: 3-D connected components (the reference tracker), where
+    any touching cell between consecutive steps links two objects.
+    min_overlap > 0: 2-D components at each step, linked in time only where the
+    overlap holds at least this fraction of the smaller of the two areas, one
+    successor per object (the largest overlap; the rest start new objects) and
+    one predecessor per object (the largest overlap; the rest end). Objects
+    that touch without overlapping enough stay separate instead of merging.
+    Returns (labels, number of objects) like ndimage.label.
+    """
+    if min_overlap <= 0:
+        return ndimage.label(mask, structure=structure_3d)
+    structure_2d = structure_3d[1]
+    out = np.zeros(mask.shape, dtype=int)
+    next_id = 1
+    prev_lab, prev_map, prev_n = None, {}, 0
+    for t in range(mask.shape[0]):
+        lab, n = ndimage.label(mask[t], structure=structure_2d)
+        cur_map = {}
+        if n and prev_n:
+            both = (prev_lab > 0) & (lab > 0)
+            if both.any():
+                pairs, counts = np.unique(np.stack([prev_lab[both], lab[both]]), axis=1, return_counts=True)
+                prev_area = np.bincount(prev_lab.ravel(), minlength=prev_n + 1)
+                cur_area = np.bincount(lab.ravel(), minlength=n + 1)
+                used_prev, used_cur = set(), set()
+                for k in np.argsort(-counts, kind="stable"):
+                    p, c, ov = int(pairs[0, k]), int(pairs[1, k]), counts[k]
+                    if p in used_prev or c in used_cur:
+                        continue
+                    if ov >= min_overlap * min(prev_area[p], cur_area[c]):
+                        cur_map[c] = prev_map[p]
+                        used_prev.add(p); used_cur.add(c)
+        for c in range(1, n + 1):
+            if c not in cur_map:
+                cur_map[c] = next_id
+                next_id += 1
+        if n:
+            lut = np.zeros(n + 1, dtype=int)
+            for c, i in cur_map.items():
+                lut[c] = i
+            out[t] = lut[lab]
+        prev_lab, prev_map, prev_n = lab, cur_map, n
+    return out, next_id - 1
+
 
 def remove_small_short_objects(objects_id,area_objects,min_area,min_time,DT):
     """Checks if the object is large enough during enough time steps
@@ -465,6 +517,10 @@ def MCStracking(
 
     DT = cfg.DT
 
+    # Sensitivity options (absent from mcs_config.py: the reference behaviour)
+    require_bt  = getattr(cfg, "require_bt", True)    # False: rain-only storms, no cloud shield needed
+    min_overlap = getattr(cfg, "min_overlap", 0.0)    # >0: objects continue in time only with this overlap fraction
+
     #Precipitation tracking setup
     smooth_sigma_pr = cfg.smooth_sigma_pr   # [0] Gaussion std for precipitation smoothing
     thres_pr        = cfg.thres_pr     # [2] precipitation threshold [mm/h]
@@ -518,7 +574,7 @@ def MCStracking(
         pr_data, sigma=(0, smooth_sigma_pr, smooth_sigma_pr)
     )
     pr_mask = pr_smooth >= thres_pr * DT
-    objects_id_pr, num_objects = ndimage.label(pr_mask, structure=obj_structure_3D)
+    objects_id_pr, num_objects = label_objects(pr_mask, obj_structure_3D, min_overlap)
     logging.debug("            " + str(num_objects) + " precipitation object found")
 
     # connect objects over date line
@@ -560,7 +616,7 @@ def MCStracking(
         bt_data, sigma=(0, smooth_sigma_bt, smooth_sigma_bt)
     )
     bt_mask = bt_smooth <= thres_bt
-    objects_id_bt, num_objects = ndimage.label(bt_mask, structure=obj_structure_3D)
+    objects_id_bt, num_objects = label_objects(bt_mask, obj_structure_3D, min_overlap)
     logging.debug("            " + str(num_objects) + " cloud object found")
 
     # connect objects over date line
@@ -652,42 +708,48 @@ def MCStracking(
         pr_max = np.array(np.max(pr_act,axis=(1,2)))
 
 
-        #Check overlaps between clouds (bt) and precip objects
-        objects_overlap = np.delete(np.unique(bt_object_act[pr_object_act]),0)
-
-        if len(objects_overlap) == 0:
-            # no deep cloud shield is over the precipitation
-            continue
-
-        ## Keep bt objects (entire) that partially overlap with pr object
-
-        bt_object_overlap = np.in1d(bt_objects[time_slice].flatten(), objects_overlap).reshape(bt_objects[time_slice].shape)
-
-        # Get size of all cloud (bt) objects together
-        # We get size of all cloud objects that overlap partially with pr object
-        # DO WE REALLY NEED THIS?
-
-        bt_size = np.array(
-            [
-            np.sum(grid_cell_area[bt_object_overlap[tt, :, :] > 0])
-            for tt in range(bt_object_overlap.shape[0])
-            ]
-        )
-
-        #Check if BT is below threshold over precip areas
-        bt_min_temp = np.nanmin(np.where(bt_object_slice>0,bt_slice,999),axis=(1,2))
-
-
-
         # minimum lifetime peak precipitation
         is_pr_peak_intense = np.max(pr_max) >= MCS_thres_peak_pr * DT
-        MCS_test = (
-            (bt_size / 1000**2 >= MCS_min_area_bt)
-            & (bt_min_temp  <= MCS_thres_bt )
-            & (pr_size / 1000**2 >= MCS_min_area )
+        pr_test = (
+            (pr_size / 1000**2 >= MCS_min_area )
             & (pr_max >= MCS_thres_pr * DT)
             & (is_pr_peak_intense)
         )
+
+        if not require_bt:
+            # rain-only storms (sensitivity): the precipitation criteria alone
+            MCS_test = pr_test
+        else:
+            #Check overlaps between clouds (bt) and precip objects
+            objects_overlap = np.delete(np.unique(bt_object_act[pr_object_act]),0)
+
+            if len(objects_overlap) == 0:
+                # no deep cloud shield is over the precipitation
+                continue
+
+            ## Keep bt objects (entire) that partially overlap with pr object
+
+            bt_object_overlap = np.in1d(bt_objects[time_slice].flatten(), objects_overlap).reshape(bt_objects[time_slice].shape)
+
+            # Get size of all cloud (bt) objects together
+            # We get size of all cloud objects that overlap partially with pr object
+            # DO WE REALLY NEED THIS?
+
+            bt_size = np.array(
+                [
+                np.sum(grid_cell_area[bt_object_overlap[tt, :, :] > 0])
+                for tt in range(bt_object_overlap.shape[0])
+                ]
+            )
+
+            #Check if BT is below threshold over precip areas
+            bt_min_temp = np.nanmin(np.where(bt_object_slice>0,bt_slice,999),axis=(1,2))
+
+            MCS_test = (
+                (bt_size / 1000**2 >= MCS_min_area_bt)
+                & (bt_min_temp  <= MCS_thres_bt )
+                & pr_test
+            )
 
         # assign unique object numbers
 
@@ -705,7 +767,7 @@ def MCStracking(
             continue
 
     #if len(objects_overlap)>1: import pdb; pdb.set_trace()
-    objects_id_MCS, num_objects = ndimage.label(MCS_objects, structure=obj_structure_3D)
+    objects_id_MCS, num_objects = label_objects(MCS_objects > 0, obj_structure_3D, min_overlap)
     grMCSs = calc_object_characteristics(
         objects_id_MCS,  # feature object file
         pr_data,  # original file used for feature detection
@@ -767,6 +829,10 @@ def MCStracking(
                         'MCS_thres_bt': f'{cfg.MCS_thres_bt} K',  # Minimum brightness temperature
                         'MCS_min_area_bt': f'{cfg.min_area_bt} km2',  # Minimum cloud area size in km²
                         'MCS_min_time': f'{cfg.MCS_min_time} h',  # Minimum lifetime of MCS
+                        # sensitivity options (reference: cloud shield required, any overlap links)
+                        'require_bt': str(require_bt),
+                        'min_overlap': f'{min_overlap:g}',
+                        'exp_label': getattr(cfg, 'exp_label', 'unknown'),
                     }
 
         fino.to_netcdf(nc_file,mode='w',encoding={'PR':{'zlib': True,'complevel': 5},

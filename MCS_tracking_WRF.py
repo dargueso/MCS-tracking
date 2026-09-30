@@ -30,7 +30,11 @@ import pandas as pd
 
 from joblib import Parallel, delayed
 
-import mcs_config as cfg
+# The tracking settings come from mcs_config.py unless MCS_CONFIG names another
+# module (the sensitivity experiments use mcs_config_sens.py); mcs_config.py
+# itself stays as the analyses that focus on exp1 expect it.
+import importlib
+cfg = importlib.import_module(os.environ.get("MCS_CONFIG", "mcs_config"))
 from constants import const
 from tracking_functions_optimized import MCStracking, olr_to_tb
 
