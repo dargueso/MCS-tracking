@@ -163,41 +163,44 @@ MERGIR at 4 km).
 Both are produced, so either can be tracked without redoing the coarsening, and
 the choice should be judged on **storm** statistics rather than cell counts.
 
-Tracked over the full record (exp1, WME, 2011-2020, all months):
+Tracked over the full record (exp1, WME, 2011-2020, all months). Every statistic
+counts only the timesteps inside the box, for all three datasets alike (clipped
+convention, 2026-09-30; see the main README). Recomputed after the clock-hour
+rain fix, so these supersede any earlier numbers:
 
 | | storms | med area (km²) | med dur (h) | med peak (mm/h) | med vol (10⁶ m³) |
 |---|---|---|---|---|---|
-| IMERG + MERGIR | **1884** | **10154** | **12** | **26.5** | **473** |
-| EPICC 0.1° YS | 1587 (−16%) | 6988 | 12 | 32.1 | 411 |
-| EPICC 0.1° SB | 3182 (+69%) | 5527 | 11 | 28.7 | 284 |
+| IMERG + MERGIR | **1884** | **9384** | **10** | **25.0** | **372** |
+| EPICC 0.1° YS | 1569 (−17%) | 6566 | 10 | 30.9 | 322 |
+| EPICC 0.1° SB | 3133 (+66%) | 5102 | 9 | 27.4 | 226 |
 
 Two-sample KS statistic against the observations:
 
 | | area | duration | peak | volume |
 |---|---|---|---|---|
-| YS | **0.165** | 0.070 | 0.212 | **0.060** |
-| SB | 0.266 | 0.077 | **0.097** | 0.163 |
+| YS | **0.147** | 0.061 | 0.206 | **0.050** |
+| SB | 0.247 | **0.052** | **0.096** | 0.155 |
 
 and the tail summary — model/observed quantile ratio, 10,000 paired year-block
 resamples, `*` = 95% interval excludes 1:
 
 | | | p90 | p95 | p99 |
 |---|---|---|---|---|
-| **YS** | area | 0.62 * | 0.59 * | 0.58 * |
-| | duration | 1.29 * | 1.40 * | 1.37 * |
-| | peak | 1.26 * | 1.30 * | 1.37 * |
-| | volume | 0.86 * | 0.93 | **1.03** |
-| **SB** | area | 0.51 * | 0.49 * | 0.50 * |
-| | duration | 1.08 * | 1.17 * | 1.20 * |
-| | peak | 1.12 * | 1.21 * | 1.29 * |
-| | volume | 0.57 * | 0.61 * | 0.68 * |
+| **YS** | area | 0.62 * | 0.60 * | 0.58 * |
+| | duration | 1.29 * | 1.38 * | 1.23 * |
+| | peak | 1.25 * | 1.31 * | 1.36 * |
+| | volume | 0.87 * | 0.89 | **0.99** |
+| **SB** | area | 0.50 * | 0.50 * | 0.50 * |
+| | duration | 1.05 | 1.15 * | 1.12 |
+| | peak | 1.12 * | 1.20 * | 1.28 * |
+| | volume | 0.54 * | 0.58 * | 0.71 * |
 
 YS is closer on storm count and on the two cloud-influenced distributions (area,
 volume). SB is closer only on peak rain rate — a precipitation quantity the BT
 conversion does not touch directly, so it differs purely because a different set
 of objects is identified. **YS is the recommended choice**, and the tail summary
-strengthens that: at p95–p99 YS reproduces extreme rain volume (0.93–1.03, the
-interval including 1), while SB underestimates it by a third (0.57–0.68, never
+strengthens that: at p95–p99 YS reproduces extreme rain volume (0.89–0.99, the
+intervals including 1), while SB underestimates it by a third (0.54–0.71, never
 including 1). Rain volume is the paper's headline quantity, so that is the
 comparison that matters most.
 
@@ -423,16 +426,16 @@ ASON.
 ## Storm-relative rain structure
 
 `plot_storm_structure.py` composites the rain field around every storm centre
-(~27,000 time steps for the observations), giving three composite maps and a
+(22,185 time steps for the observations), giving three composite maps and a
 radial profile. It answers a question the bulk statistics cannot: *is* the
 model's smaller-storm/higher-peak signature a narrower core, a weaker shield, or
 both?
 
 | | centre | r=50 km | r=100 km | r=200 km | e-fold (km) | % rain >100 km |
 |---|---|---|---|---|---|---|
-| IMERG + MERGIR | 7.79 | 4.26 | 1.70 | 0.59 | **88** | 71.1 |
-| EPICC 0.1° YS | 7.64 | 3.26 | 1.21 | 0.44 | **62** | 70.9 |
-| EPICC 0.1° SB | 7.60 | 2.95 | 1.07 | 0.42 | **62** | 72.6 |
+| IMERG + MERGIR | 7.77 | 4.23 | 1.71 | 0.60 | **88** | 71.2 |
+| EPICC 0.1° YS | 7.65 | 3.27 | 1.23 | 0.46 | 62 | 71.2 |
+| EPICC 0.1° SB | 7.60 | 2.93 | 1.08 | 0.43 | 62 | 72.6 |
 
 Rain rates in mm h⁻¹; `centre` is the composite peak, `r=X` the azimuthal mean
 at that radius, `e-fold` the radius at which the profile falls to 1/e of the

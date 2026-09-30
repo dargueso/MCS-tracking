@@ -82,6 +82,8 @@ def composite(dataset, exp, max_storms=None):
                 if max_storms and nstorm > max_storms:
                     break
                 for k, when in enumerate(storm["times"]):
+                    if not inside[k]:
+                        continue          # clipped convention: in-region steps only
                     it = tindex.get(pd.Timestamp(when))
                     if it is None:
                         continue

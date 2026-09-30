@@ -67,18 +67,23 @@ def load(dataset, exp="exp1"):
             storms = pd.read_pickle(fin)
             for storm in storms.values():
                 track = storm["track"]          # (nstep, 2) lat, lon
-                # same criterion as the model analysis: the storm counts if its
-                # centre lies inside the region at any point in its life
+                # Same criterion as the model analysis: a storm counts if its
+                # centre is inside the region at any point, but only the
+                # timesteps inside contribute to its statistics - duration
+                # included. Project convention, 2026-09-30; keeping the whole
+                # track instead inflates area, duration and volume by amounts
+                # that differ between datasets, because tracks leave the box
+                # at different rates.
                 inside = ((track[:, 0] >= cfg.lat_min) & (track[:, 0] <= cfg.lat_max)
                           & (track[:, 1] >= cfg.lon_min) & (track[:, 1] <= cfg.lon_max))
                 if not inside.any():
                     continue
                 rows.append({
                     "year": year, "month": month,
-                    "area": np.nanmax(storm["size"]) / 1e6,        # km2
-                    "duration": len(storm["times"]),               # h
-                    "peak": np.nanmax(storm["max"]),               # mm/h
-                    "volume": np.nansum(storm["volume"]) / 1e6,    # 10^6 m3
+                    "area": np.nanmax(np.asarray(storm["size"])[inside]) / 1e6,     # km2
+                    "duration": int(inside.sum()),                                  # h
+                    "peak": np.nanmax(np.asarray(storm["max"])[inside]),            # mm/h
+                    "volume": np.nansum(np.asarray(storm["volume"])[inside]) / 1e6, # 10^6 m3
                 })
     if not rows:
         logging.warning("no storms found for %s", dataset)
