@@ -81,7 +81,7 @@ eyear = 2020
 smonth = 1
 emonth = 12
 allmonths = [8,9,10,11]
-calc_summary=False
+calc_summary=True
 
 pr_max = 250
 wd_max = 50
@@ -131,6 +131,12 @@ if calc_summary is True:
                 fin_wspd = xr.open_mfdataset(f"{cfg.path_postproc}/{wrun}/WSPD10/UIB_01H_WSPD10_{year}-{month:02d}.nc")
                 fin_PW = xr.open_mfdataset(f"{cfg.path_postproc}/{wrun}/PW/UIB_03H_PW_{year}-{month:02d}.nc")
                 fin_CAPE = xr.open_mfdataset(f"{cfg.path_postproc}/{wrun}/CAPE2D/UIB_03H_CAPE2D_{year}-{month:02d}.nc")
+                assert fin_CAPE.sizes['lev'] == 4, (
+                    f"CAPE2D {wrun} {year}-{month:02d}: lev={fin_CAPE.sizes['lev']}, "
+                    "expected 4 (mcape, mcin, lcl, lfc). A lev of 8 is the "
+                    "pre-2026-09-30 layout kept in CAPE2D_oldlayout, where the "
+                    "variables sit along 'time' and this selection silently "
+                    "returns NaN.")
 
                 for storm_id in allstorms.keys():
                     this_storm = allstorms[storm_id]
@@ -167,6 +173,12 @@ if calc_summary is True:
                         hour = pd.Timestamp(this_storm['times'][nstep]).floor('h')
                         wspd_storm = fin_wspd.WSPD10.sel(time=hour).isel(x=slice(x1,x2),y=slice(y1,y2))
                         pw_storm = fin_PW.PW.sel(time=hour-pd.Timedelta(hours=3),method='nearest').isel(x=slice(x1,x2),y=slice(y1,y2))
+                        # CAPE2D lev = (mcape, mcin, lcl, lfc); lev=0 is MCAPE.
+                        # Files written before 2026-09-30 had the four variables
+                        # along 'time' and the times of day along 'lev', so this
+                        # selection returned an all-NaN slot for ~89% of storms.
+                        # Those are now in CAPE2D_oldlayout and the postprocessing
+                        # is fixed; the assert above is the tripwire.
                         mcape_storm = fin_CAPE.CAPE2D.sel(time=hour-pd.Timedelta(hours=3),method='nearest').isel(x=slice(x1,x2),y=slice(y1,y2),lev=0)
                         #wind_storm_step = fin_wind.sel(time=this_storm['times'][nstep])
 
@@ -201,21 +213,33 @@ if calc_summary is True:
         storms = storms.loc[(storms.lon>cfg.reg_coords[reg][1]) & (storms.lon<cfg.reg_coords[reg][3]) & (storms.lat>cfg.reg_coords[reg][0]) & (storms.lat<cfg.reg_coords[reg][2])]
         storms['storm_id']=pd.factorize(storms.storm_id)[0] + 1
 
-        datalist = []
-        for nstorm in storms['storm_id'].unique():
-
-            datalist.append([nstorm,
-                            storms.loc[storms['storm_id'] == nstorm].prmax.max(),
-                            storms.loc[storms['storm_id'] == nstorm].wspd_max.max(),
-                            storms.loc[storms['storm_id'] == nstorm]['size'].max()/(1000**2), # max INSTANTANEOUS area over the storm lifetime [km2]
-                            storms.loc[storms['storm_id'] == nstorm].prvol.sum(), # rain volume integrated over the lifetime [m3]
-                            storms.loc[storms['storm_id'] == nstorm].duration.max(),
-                            storms.loc[storms['storm_id'] == nstorm].pw_mean.mean(),
-                            storms.loc[storms['storm_id'] == nstorm].pw_sum.sum(),
-                            storms.loc[storms['storm_id'] == nstorm].mcape_mean.mean(),
-                            storms.loc[storms['storm_id'] == nstorm].mcape_max.max(),
-                            ])
-        storms_summary = pd.DataFrame(datalist, columns=['storm_id','prmax','wspd_max','max_size','tot_vol','duration','pw_mean','pw_sum','mcape_mean','mcape_max'])
+        # One row per storm, CLIPPED to the region: `storms` has already been
+        # filtered to timesteps inside `reg`, so every statistic - duration
+        # included - counts only what happened inside the box. The full track
+        # length is kept alongside as duration_track. Project convention,
+        # 2026-09-30; check_bt_robustness.py clips the same way.
+        g = storms.groupby('storm_id')
+        storms_summary = pd.DataFrame({
+            'prmax': g.prmax.max(),
+            'wspd_max': g.wspd_max.max(),
+            'max_size': g['size'].max() / 1e6,        # max instantaneous area [km2]
+            'mean_size': g['size'].mean() / 1e6,      # lifetime-mean footprint [km2]
+            'tot_vol': g.prvol.sum(),                 # rain volume over lifetime [m3]
+            'duration': g.size(),                     # in-region steps [h]
+            'duration_track': g.duration.max(),       # full track length [h]
+            'pw_mean': g.pw_mean.mean(),
+            'pw_sum': g.pw_sum.sum(),
+            'mcape_mean': g.mcape_mean.mean(),
+            'mcape_max': g.mcape_max.max(),
+        }).reset_index()
+        # Volume-consistent mean rain rate, so that
+        #     tot_vol == mean_size * mean_int * duration
+        # holds exactly per storm and the manuscript's R = N.A.I.D
+        # decomposition closes with a residual that is pure cross-storm
+        # covariance rather than a definitional mismatch.
+        storms_summary['mean_int'] = (storms_summary.tot_vol
+                                      / (storms_summary.mean_size * 1e6
+                                         * storms_summary.duration) * 1e3)
         storms_summary.to_pickle(f"storms_{period}_summary_{syear}-{eyear}_{allmonths[0]:02d}-{allmonths[-1]:02d}_{reg}_{exp}_{bt_method}_m3.pkl")
 
 

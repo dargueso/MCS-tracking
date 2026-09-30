@@ -53,22 +53,32 @@ def load(bt, period, syear, eyear, months, exp):
                 continue          # month with no qualifying storm; counts as zero
             for storm in pd.read_pickle(fin).values():
                 track = storm["track"]
-                inside = ((track[:, 0] >= lat0) & (track[:, 0] <= lat1)
-                          & (track[:, 1] >= lon0) & (track[:, 1] <= lon1))
+                # CLIP to the region: only the timesteps inside WME contribute
+                # to every statistic, including duration. This is the project
+                # convention (2026-09-30) and matches
+                # plot_scatter_hist_storm_characteristics.py, which filters
+                # timesteps rather than whole tracks; strict inequalities, as
+                # there. Keeping the whole track whenever any step fell inside
+                # -- what this script did before -- inflated the present-day
+                # median area from 5,366 to 6,280 km2 and the volume from 299
+                # to 434e6 m3, and changed the PGW volume ratio from 1.41 to
+                # 1.67, so the two conventions are not interchangeable.
+                inside = ((track[:, 0] > lat0) & (track[:, 0] < lat1)
+                          & (track[:, 1] > lon0) & (track[:, 1] < lon1))
                 if not inside.any():
                     continue
                 # Pickles from before the area-weighted 'volume' key (the first
                 # SB run) fall back to the uniform-cell equivalent, ~7% low.
                 # Counted, so the report only warns when it actually happened.
                 if "volume" in storm:
-                    vol = np.nansum(storm["volume"])
+                    vol = np.nansum(np.asarray(storm["volume"])[inside])
                 else:
-                    vol = np.nansum(storm["tot"]) * 1e-3 * DX ** 2
+                    vol = np.nansum(np.asarray(storm["tot"])[inside]) * 1e-3 * DX ** 2
                     FALLBACK[bt] = FALLBACK.get(bt, 0) + 1
                 rows.append({"year": year,
-                             "area": np.nanmax(storm["size"]) / 1e6,
-                             "duration": len(storm["times"]),
-                             "peak": np.nanmax(storm["max"]),
+                             "area": np.nanmax(np.asarray(storm["size"])[inside]) / 1e6,
+                             "duration": int(inside.sum()),
+                             "peak": np.nanmax(np.asarray(storm["max"])[inside]),
                              "volume": vol / 1e6})
     return pd.DataFrame(rows)
 
