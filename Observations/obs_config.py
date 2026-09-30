@@ -45,6 +45,10 @@ path_obs = "/scratch3/dargueso/obs-mcs-tracking"
 path_imerg = f"{path_obs}/IMERG"          # half-hourly subsets, native 0.1 deg
 path_mergir = f"{path_obs}/MERGIR"        # half-hourly subsets, native 4 km
 path_track = f"{path_obs}/ConvStormTracking"  # hourly, common grid, ready to track
+# All figures (and the numbers/CSV files that go with them), one subfolder per
+# evaluation: satellite, radar, stations.
+path_figs = f"{path_obs}/figures"
+path_figs_sat = f"{path_figs}/satellite"
 
 # Scratch space for the full IMERG granules before subsetting. They are deleted
 # as soon as the region has been extracted, so this never holds more than
@@ -151,6 +155,14 @@ datasets = {
 for _key, _wrun in model_runs.items():
     for _m in bt_methods:
         datasets[f"mod0.1_{_m}_{_key}"] = _mod(_wrun, _m)
+# Symmetric radar-based pair (make_radar_tracking_input.py): EURADCLIM coarsened
+# to 0.1 deg with MERGIR, and the present-day model cut to the radar coverage
+# with its YS Tb. Same storm definition, same area and hours on both sides.
+datasets["rad"] = (f"{path_track}/RADCOV_01H_RAIN_{{tag}}.nc",
+                   f"{path_track}/OBS_01H_TB_{{tag}}.nc")
+datasets["mod0.1_YS_pres_radcov"] = (
+    f"{path_modcoarse}/{model_runs['pres']}/MODRADCOV_01H_RAIN_{{tag}}.nc",
+    f"{path_modcoarse}/{model_runs['pres']}/MOD_01H_TB_YS_{{tag}}.nc")
 
 # The native 2 km tracking is not run from here: it already lives under
 # {path_model}/<wrun>/ConvStormTracking/<exp>/ and keeps that layout.

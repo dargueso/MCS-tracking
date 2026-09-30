@@ -134,6 +134,14 @@ def load_hymex(syn2ind):
         d = pd.read_pickle(fin)
         d = d.loc[:, [c for c in d.columns if isinstance(c, str) and c.strip()]]
         d = d.loc[:, ~d.columns.duplicated()]
+        # Rows off the 10-min grid (:15/:45 and a few odd minutes in 2011-2015,
+        # from a 15-min station, AR01) fall in the same slot as a real :10/:40
+        # value and, empty for every other station, would overwrite it with NaN.
+        on_grid = (d.index.minute % 10 == 0) & (d.index.second == 0)
+        if not on_grid.all():
+            logging.info("HyMEX %s: dropped %d rows off the 10-min grid", os.path.basename(fin),
+                         (~on_grid).sum())
+            d = d.loc[on_grid]
         # END stamp -> START stamp, then position on the output axis
         pos = ((d.index - pd.Timedelta(minutes=10)) - T0) // pd.Timedelta(minutes=10)
         pos = np.asarray(pos)
@@ -145,13 +153,16 @@ def load_hymex(syn2ind):
                 continue
             canon = syn2ind.get(code, code)
             arr = out.setdefault(canon, np.full(nt, np.nan, "float32"))
-            old = arr[pos[ok]]
-            both = np.isfinite(old) & np.isfinite(vals)
+            # only finite values are written, so a missing value never erases one
+            good = np.isfinite(vals)
+            p, vals = pos[ok][good], vals[good]
+            old = arr[p]
+            both = np.isfinite(old)
             if both.any():
                 n = conflicts.setdefault(canon, [0, 0])
                 n[0] += int(both.sum())
                 n[1] += int((np.abs(old[both] - vals[both]) > 0.05).sum())
-            arr[pos[ok]] = np.where(np.isfinite(old), old, vals)
+            arr[p] = np.where(both, old, vals)
         logging.info("HyMEX %s: %d columns", os.path.basename(fin), d.shape[1])
     if conflicts:
         tot = sum(v[0] for v in conflicts.values())

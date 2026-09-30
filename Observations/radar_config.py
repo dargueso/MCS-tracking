@@ -55,13 +55,9 @@ lon_min, lon_max = ocfg.lon_min, ocfg.lon_max
 # mcs_config.reg_coords. "ALL" is the whole masked area. SFR (southern France:
 # Languedoc, Cevennes, Provence) is defined here because it has no entry in
 # mcs_config; it is where the Cevenol events and the best radar coverage are.
-subregions = {
-    "ALL": [lat_min, lon_min, lat_max, lon_max],
-    "CAT": mcfg.reg_coords["CAT"],
-    "LEV": mcfg.reg_coords["LEV"],
-    "BAL": mcfg.reg_coords["BAL"],
-    "SFR": [42.3, 2.0, 45.0, 7.8],
-}
+# Regions: ALL is this box; the others are the autonomous communities CAT, VAL,
+# BAL, MUR, AND as polygons (regions.py), cut to the box.
+subregions = {"ALL": [lat_min, lon_min, lat_max, lon_max]}
 
 ###########################################################
 # Paths
@@ -73,7 +69,7 @@ path_rad_raw = f"{path_rad}/raw"          # archives as downloaded
 path_rad_grid = f"{path_rad}/on_model_grid"   # RAD_01H_RAIN_YYYY-MM.nc
 path_rad_stats = f"{path_rad}/stats"      # per-month per-cell statistics
 path_rad_scratch = f"{ocfg.path_scratch}/euradclim"
-path_rad_figs = path_rad
+path_rad_figs = f"{ocfg.path_figs}/radar"
 
 model_run = ocfg.model_runs["pres"]       # evaluation run: ERA5-driven present
 # Clock-hour model rain (HH:00-HH+1:00), the definitive version on /scratch3.

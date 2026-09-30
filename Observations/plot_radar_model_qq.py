@@ -42,6 +42,7 @@ import matplotlib.pyplot as plt
 import radar_config as cfg
 import radar_utils as ru
 import seasons
+import regions as regions_mod
 from seasons import SEASONS
 from plot_obs_model_comparison import INK, INK_MUTED, GRID, COLORS
 
@@ -64,8 +65,8 @@ def region_masks(scale):
     grid = ru.model_grid()
     lat = ru.aggregate_static(grid["lat"], scale)
     lon = ru.aggregate_static(grid["lon"], scale)
-    return {name: mask & (lat >= la0) & (lat <= la1) & (lon >= lo0) & (lon <= lo1)
-            for name, (la0, lo0, la1, lo1) in cfg.subregions.items()}
+    return {name: mask & m for name, m in
+            regions_mod.masks(lat, lon, box=cfg.subregions["ALL"]).items()}
 
 
 def regional(dataset, scale, months, masks):
@@ -140,7 +141,7 @@ def main():
                         level=logging.INFO)
     months, tag = seasons.resolve(args)
     edges = ru.hist_edges()
-    regions = list(cfg.subregions)
+    regions = ["ALL"] + regions_mod.ORDER
 
     data, rows = {}, []
     for k in cfg.scales:

@@ -222,7 +222,7 @@ def main():
                  f"{cfg.reg}, {cfg.syear}-{cfg.eyear}, {args.exp}, 0.1° grid",
                  fontsize=12, color=INK, fontweight="bold", y=1.0)
     fig.tight_layout(rect=[0, 0, 1, 0.94])
-    out = f"{cfg.path_obs}/storm_structure_{args.exp}.png"
+    out = f"{cfg.path_figs_sat}/storm_structure_{args.exp}.png"
     fig.savefig(out, dpi=200, bbox_inches="tight", facecolor=fig.get_facecolor())
     logging.info("wrote %s", out)
 

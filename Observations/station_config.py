@@ -63,7 +63,8 @@ syear, eyear = 2011, 2020     # the EPICC evaluation period; Arnau ends in 2019
 # Everything about the stations lives under one directory:
 #   STATIONS/AEMET_combined/   the database itself - data files, station list,
 #                              README and build summary, nothing else
-#   STATIONS/evaluation/       model (and radar) at the stations, figures, numbers
+#   STATIONS/evaluation/       model (and radar) at the stations
+#   figures/stations/          figures and their numbers/CSV files
 path_st = f"{ocfg.path_obs}/STATIONS"
 path_db = f"{path_st}/AEMET_combined"
 path_arnau = f"{path_db}/arnau_raw"                  # unpacked Arnau text files
@@ -73,7 +74,9 @@ file_daily = f"{path_db}/AEMET_DAILY_{syear}-{eyear}.nc"
 file_arnau = f"{path_db}/AEMET_ARNAU_DAILY_{syear}-2019.nc"
 file_stations = f"{path_db}/stations.csv"
 path_eval = f"{path_st}/evaluation"
-path_st_figs = path_eval
+path_st_figs = f"{ocfg.path_figs}/stations"
+path_arnau_figs = f"{ocfg.path_figs}/arnau"      # model vs Arnau daily record
+path_storm_figs = f"{ocfg.path_figs}/storms"     # rain in storm hours only
 
 ###########################################################
 # Time convention
@@ -140,11 +143,8 @@ geofile = mcfg.geofile_ref
 # errors in where the model puts the rain.
 nbhd_half = 1
 eval_tiers = (TIER_A, TIER_B)    # which day tiers the evaluation accepts
-subregions = {
-    "ALL": [ocfg.lat_min, ocfg.lon_min, ocfg.lat_max, ocfg.lon_max],
-    "CAT": mcfg.reg_coords["CAT"],
-    "LEV": mcfg.reg_coords["LEV"],
-    "BAL": mcfg.reg_coords["BAL"],
-}
+# Regions: ALL is this box; the others are the autonomous communities CAT, VAL,
+# BAL, MUR, AND as polygons (regions.py), cut to the box.
+subregions = {"ALL": [ocfg.lat_min, ocfg.lon_min, ocfg.lat_max, ocfg.lon_max]}
 wet_thres = 0.1                  # mm/h
 durations_h = [1, 2, 3, 6, 12, 24]

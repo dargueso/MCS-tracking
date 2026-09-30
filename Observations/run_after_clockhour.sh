@@ -12,6 +12,8 @@ done
 echo "$(date) correction done, validating"
 $PY validate_clockhour.py || { echo "$(date) VALIDATION FAILED, stopping; nothing re-run"; exit 1; }
 set -e
+# One-off, already run on 2026-09-29. The figures have since moved to
+# $S/figures/{radar,stations}, and the old ones to $S/figures/before_clockhour_fix/.
 S=/scratch3/dargueso/obs-mcs-tracking
 # keep what was made from the original (10-min-early) model files
 mv $S/EURADCLIM/stats $S/EURADCLIM/stats_before_clockhour_fix

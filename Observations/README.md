@@ -281,7 +281,9 @@ axes and 2D `lat`/`lon`.
 
 ## Comparison outputs, and which numbers live where
 
-Everything lands in `{path_obs}` (i.e. `/scratch3/dargueso/obs-mcs-tracking`),
+All figures, with their numbers and CSV files, are in `{path_figs}` =
+`/scratch3/dargueso/obs-mcs-tracking/figures/`, one subfolder per evaluation:
+`satellite/` (below), `radar/` and `stations/`. The satellite outputs are in `figures/satellite/`,
 named on the experiment so an `exp2` run sits beside `exp1` rather than
 overwriting it.
 
@@ -578,7 +580,9 @@ python plot_radar_model_maps.py       # maps: mean, wet freq, p99.9, diurnal pha
 python plot_radar_model_maps.py --scale 5
 ```
 
-Output under `/scratch3/dargueso/obs-mcs-tracking/EURADCLIM/`.
+Data (raw, on the model grid, statistics, `RADAR_MASK.nc`) under
+`/scratch3/dargueso/obs-mcs-tracking/EURADCLIM/`; figures, numbers and CSV files in
+`/scratch3/dargueso/obs-mcs-tracking/figures/radar/`.
 
 **API key.** The KNMI API needs one: a personal key (free, at
 developer.dataplatform.knmi.nl) is read from `$KNMI_API_KEY` or
@@ -676,7 +680,8 @@ but it is independent of both the satellite and the radar data. Settings are in
 STATIONS/AEMET_combined/   the database: data files, stations.csv, README.md,
                            build_summary.txt (README and summary are written
                            by the build, with that build's numbers)
-STATIONS/evaluation/       model (and EURADCLIM) at the stations, figures, numbers
+STATIONS/evaluation/       model (and EURADCLIM) at the stations
+figures/stations/          the figures, numbers and CSV files
 ```
 
 ```bash
@@ -697,7 +702,7 @@ runs for different months sit side by side. A custom list equal to a named
 season gets that season's tag.
 
 Whole-year gauge results (`--all-months`) match ASON: model/gauge hourly
-p99.9 1.19 [1.13–1.25], 1-h seasonal maxima 1.12, daily correlation 0.63.
+p99.9 1.17 [1.12–1.21], 1-h seasonal maxima 1.05, daily correlation 0.64.
 
 ### The dataset: 10-min, clock-hour and daily products
 
@@ -725,20 +730,39 @@ ways:
 - **In verified days, missing 10-min steps are 0.** The day reproduces AEMET's
   validated total, so the gaps held no rain, and every hour of the day is known.
 
-No extra stations are available anywhere in these data, but the gain in data
-is large:
+No extra stations are available anywhere in these data, and since the HyMEX
+fix below the gain is small:
 
-- **Valid station-hours:** 15.1 M → 19.3 M (+27%).
-- **2011–2014:** from 14–35% to 58–67% of possible hours valid; these years
-  were mostly lost before.
-- **Stations with ≥ 50% valid hours:** 245 → 252.
+- **Valid station-hours:** 20.75 M → 20.86 M (+0.5%).
+- **Stations with ≥ 50% valid hours:** 253 → 254.
+
+(Before the fix the hourly rules seemed to add 27%, almost all in 2011–2014.
+They were recovering days the bug had broken.)
+
+**HyMEX off-grid rows (fixed 2026-09-29).** The 2011–2015 HyMEX files also
+hold rows stamped :15 and :45, plus a few odd minutes, from a 15-minute station
+(`AR01`, which has no coordinates and is dropped anyway). Each of those rows
+fell in the same output slot as a real :10 or :40 value and, being empty for
+every other station, overwrote it with NaN.
+
+- **What it did:** it removed two of the six 10-min steps in most hours. Dry
+  days still reproduced Arnau and were verified, with the gaps set to 0. Wet
+  days fell below Arnau's total and stayed tier 2 with their hours missing.
+- **Result:** 2011–2014 lost most of their wet days. Tier-2 wet days kept 1–5%
+  of Arnau's rain, which inflated every model/gauge ratio.
+- **The fix:** `load_hymex` drops rows off the 10-min grid and writes only
+  finite values.
+- **Accepted station-days in 2011–2014:** 58–67% before, 75–80% now; wet days
+  now verify as often as in 2015–2020.
+- **Kept:** the previous database is in `STATIONS/AEMET_combined_before_hymexfix/`
+  and its figures in `figures/before_hymexfix/stations/`.
 
 **Daily file.** Values are present only where the day is complete in the
 product they come from; verified days are always complete. Checked against
-Arnau on all 117,019 verified wet days: the daily total, max 10-min and max
+Arnau on all 146,488 verified wet days: the daily total, max 10-min and max
 sliding 60-min all agree within tolerance (100%). The clock-hour maximum
-never exceeds the sliding 60-min one. Their median ratio is 1.074, the
-sliding/clock factor.
+never exceeds the sliding 60-min one. Their median ratio (days ≥ 1 mm) is
+1.070, the sliding/clock factor.
 
 **Three AEMET sources, one set of instruments.**
 
@@ -774,10 +798,10 @@ is wrong.
 - **Arnau from another instrument** (`ID_FLAG_P` 0/2): a match still verifies
   the day, but a mismatch proves nothing, so the day stays tier 2.
 - **Why days are tier 2:**
-  - station not in Arnau (48%)
-  - 2020, after Arnau ends (30%)
-  - partial day below Arnau's total (11%)
-  - no Arnau record that day (10%)
+  - station not in Arnau (55%)
+  - 2020, after Arnau ends (33%)
+  - no Arnau record that day (11%)
+  - partial day below Arnau's total (0.4%; 11% before the HyMEX fix)
 - The evaluation uses tiers 1 and 2 (`eval_tiers`). Restrict to 1 for the
   strictest subset.
 
@@ -837,14 +861,14 @@ EPICC orange, EURADCLIM aqua.
 
 **Bias maps.** A station quantile is computed only where there are at least
 10 exceedances' worth of data (P99.9 needs ≥ 10,000 valid hours). A station
-mean needs ≥ 2,000 hours. First numbers (ASON, gauges and EPICC), median
-ratio over stations [share of stations > 1]:
+mean needs ≥ 2,000 hours. EPICC/gauges for ASON, on the joint sample with
+EURADCLIM, as the median ratio over stations [share of stations > 1]:
 
 | | ALL | CAT | LEV | BAL |
 |---|---|---|---|---|
-| mean rain | 1.30 [79%] | 1.40 [97%] | 1.37 [90%] | 0.85 [26%] |
-| P99 | 1.31 | 1.50 | 1.38 | 0.80 |
-| P99.9 | 1.27 | 1.34 | 1.44 | 0.95 |
+| mean rain | 1.20 [75%] | 1.33 [93%] | 1.21 [83%] | 0.84 [24%] |
+| P99 | 1.16 | 1.37 | 1.11 | 0.77 |
+| P99.9 | 1.22 | 1.30 | 1.31 | 1.00 |
 
 The model is wetter than the gauges almost everywhere on the mainland, and
 drier over the Balearics. The seasonal cycle shows where this comes from: the
@@ -857,23 +881,23 @@ Each comparison uses the part of the combined dataset that suits it:
 - **Duration maxima:** the same stations, compared on clock-aligned hourly
   steps. The 10-min data also give the sliding/clock factor.
 - **Daily scores:** the 10-min stations **plus the 151 Arnau-only stations**
-  (validated daily totals), 413 stations in all.
+  (validated daily totals), 421 stations in all.
 
 **First results (ASON 2011–2020, EPICC_2km_ERA5, tiers 1–2):**
 
 | | ALL | CAT | LEV | BAL |
 |---|---|---|---|---|
-| hourly p99.9, model cell / gauge | 1.18 [1.09–1.24] | 1.30 | 1.32 | 0.87 |
-| hourly p99.99, model cell / gauge | 1.00 [0.90–1.07] | 1.03 | 1.05 | 0.80 |
-| seasonal max 1 h, model cell / gauge (median) | 1.10 | 1.20 | 1.21 | 0.95 |
-| seasonal max 6 h, model cell / gauge (median) | 1.19 | 1.28 | 1.28 | 0.92 |
+| hourly p99.9, model cell / gauge | 1.20 [1.14–1.26] | 1.31 | 1.33 | 0.88 |
+| hourly p99.99, model cell / gauge | 1.00 [0.93–1.06] | 1.05 | 1.06 | 0.79 |
+| seasonal max 1 h, model cell / gauge (median) | 1.11 | 1.18 | 1.22 | 0.93 |
+| seasonal max 6 h, model cell / gauge (median) | 1.21 | 1.32 | 1.27 | 0.92 |
 
 - **The model is, if anything, too intense.** A gauge point should show *higher*
   extremes than a 4 km² average, yet the model cell matches or exceeds the
   gauges from p99 to p99.99 and for 1–24 h maxima. The Balearics are the
   exception.
 - **Sliding vs clock-hour maxima.** A sliding 60-min gauge maximum (AEMET's
-  PMAX60) is **×1.08** the clock-hour one (median of 1,547 station-seasons with
+  PMAX60) is **×1.07** the clock-hour one (median of 2,125 station-seasons with
   a ≥ 5 mm hour). This is measured, not the textbook 1.13, and it is the
   factor to apply before comparing PMAX-type gauge extremes with hourly model
   output.
@@ -881,11 +905,26 @@ Each comparison uses the part of the combined dataset that suits it:
   stronger than the gauges show in Catalonia and Valencia, and it
   underestimates night and morning rain over the Balearics. This is consistent
   with the missing nocturnal initiation peak in the satellite comparison.
-- **Daily skill (413 stations):**
-  - correlation median 0.62 (IQR 0.51–0.72)
+  - **Afternoon (12–19 UTC) / night (00–09 UTC) mean-rain ratio**, joint with
+    EURADCLIM (gauges / EPICC / radar):
+    - ALL 1.29 / 1.79 / 1.33
+    - CAT 1.55 / 2.05 / 1.55
+    - LEV 1.00 / 1.74 / 1.08
+
+    **The radar sides with the gauges.** Phase is right (peaks 15–17 UTC), and
+    night rain is about right (EPICC/gauge ≈ 1.05).
+  - **Where and when:** strongest in August–September, and at stations above
+    100 m (below 100 m, 1.12 against 1.00).
+  - **More frequency than intensity:** afternoon wet hours ×1.17 (CAT ×1.35),
+    wet-hour intensity ×1.18.
+  - **Not location error:** unchanged in the 3×3 mean.
+  - **Not a few storms:** unchanged with hours capped at 10 mm/h.
+  - **In every year:** the afternoon ratio is > 1 in all ten years.
+- **Daily skill (421 stations):**
+  - correlation median 0.63 (IQR 0.52–0.71)
   - ETS ≥ 1 mm 0.42; ETS ≥ 20 mm 0.28
-  - frequency bias ≥ 20 mm 1.14
-  - total bias median 1.12
+  - frequency bias ≥ 20 mm 1.17
+  - total bias median 1.13
 
 **Timing checks behind the diurnal comparison.** The model's diurnal cycle
 differs strongly from the gauges' (a much stronger 15–17 UTC peak), so the
@@ -922,7 +961,7 @@ in the general `wrfprocessing`.
 
 The whole evaluation was re-run on the corrected files (2026-09-29). The
 previous outputs are kept as `*_before_clockhour_fix` and in
-`figures_before_clockhour_fix/`.
+`figures/before_clockhour_fix/{radar,stations,satellite}/`.
 
 - **Distributions:** every ratio (quantiles, bias maps, gridded radar
   comparison, daily scores) moved by ≤ 0.04.
@@ -944,3 +983,186 @@ diurnal *shape*, which is therefore a model feature, not bookkeeping.
   early (HH−1:50 to HH:50); use the corrected files in `/scratch3/.../<run>/RAIN/`. The
   model's 10-min values are END-stamped, so model 10-min stamp *t* matches
   the start-stamped 10-min gauge value at *t* − 10 min.
+
+## Evaluation against Arnau (AEMET validated daily record)
+
+`extract_model_arnau.py` rebuilds Arnau's daily quantities from the model's
+10-min rain (`UIB_10MIN_RAIN.zarr`, END-stamped) at each of the 403 Arnau
+stations' cells and 3×3 blocks. It computes the 00–24 UTC total and the maximum
+over sliding windows of 10, 20 and 30 min and 1, 2, 6 and 12 h, **inside the day**. That
+is Arnau's own definition, checked on the verified gauge data:
+
+| Definition | Share of days reproduced |
+|---|---|
+| sliding windows inside the day | 99.8–100% |
+| windows reaching into the previous day | 83–99% |
+| clock-aligned blocks | 53–77% |
+
+`plot_arnau_model.py --season ASON|ANN` compares them on the days whose two
+AEMET quality flags are validated (0/1), with the model taken on the same
+station-days. Figures are in `figures/arnau/`.
+
+First results (ASON 2011–2019, 344 stations in the domain, model cell /
+Arnau, 95% year-block interval):
+
+| | ALL | CAT | LEV | BAL |
+|---|---|---|---|---|
+| mean P24 | 1.17 | 1.35 | 1.21 | 0.87 |
+| wet-day (≥ 1 mm) frequency | 1.01 | 1.15 | 1.02 | 0.89 |
+| P24 p99 | 1.18 [1.15–1.22] | 1.23 | 1.21 | 0.94 |
+| PMAX60 p99.9 | 0.99 [0.96–1.04] | 1.00 | 1.04 | 0.98 |
+| PMAX10 p99.9 | 0.75 [0.72–0.78] | 0.76 | 0.83 | 0.72 |
+
+- **The model is wetter at every window from 1 h to 24 h**, by 1.1–1.3 on the
+  mainland, which matches the hourly gauges. The excess comes from wetter
+  wet days; wet-day frequency is about right. The Balearics are dry.
+- **Below one hour the model cell falls short:** about 0.75 of Arnau's 10-min
+  p99.9. That is what a 4 km² cell against a point should give. The 3×3
+  maximum brings it to about 1.0.
+- **The check on Arnau days derived from the 10-min record** (`ID_FLAG_P = 1`)
+  gives the same ratios.
+
+## Rain under tracked storms only
+
+`extract_storms_at_stations.py` records, for every 10-min station and hour,
+the MCS object covering it in three trackings (exp1):
+
+- the observed tracking (IMERG + MERGIR, 0.1°);
+- the same tracker on the model coarsened to 0.1°;
+- the native 2 km model tracking (YS).
+
+It also stores each tracker's own rain and cold-cloud object at the station.
+`plot_storm_rain_stations.py` compares rain in storm hours; figures are in
+`figures/storms/`.
+
+**Selection effect: read this first.** A storm mask is where the tracker's
+rain is ≥ 5 mm/h. The model's rain under its own mask is therefore wet by
+construction. The gauge under an IMERG storm is not, because IMERG's errors
+decorrelate the two.
+
+Under their storms, the gauges and EURADCLIM average 5.0 mm/h. IMERG, under
+its own storms at the same stations, averages 8.9 mm/h, and the model
+10.4 mm/h. The raw "model ×2 the gauges" in storm hours is therefore mostly
+this selection. The like-for-like comparison is the tracker rain under each
+side's own mask, at 0.1°:
+
+| ASON, EPICC 0.1° / IMERG | ALL | CAT | LEV | BAL |
+|---|---|---|---|---|
+| storm hours per station-year | 0.99 | 1.22 | 1.10 | 0.59 |
+| mean rain in storm hours | 1.18 | 1.13 | 1.29 | 1.33 |
+| p90 | 1.31 | 1.21 | 1.53 | 1.56 |
+
+- **Storm hours and their diurnal cycle are like for like.** Observed storms
+  over LEV and the Balearics peak at night and in the morning (04–08 UTC);
+  the model's peak at 11–17 UTC. Over CAT both peak around 18 UTC. The
+  afternoon/night ratio of storm hours is 1.15 at the gauges and 1.53 in the
+  model: the model's afternoon excess is partly storm timing. This is the
+  missing nocturnal and morning storm peak of the satellite comparison, seen
+  at the gauges.
+- **Co-occurrence:** a model storm is over the station in 16% of
+  observed-storm hours, and in 39% within ±3 h.
+- **Cold cloud alone is no neutral condition.** The model has about 0.30× the
+  observed cold-cloud hours (`BT_objects`) over the stations: 44 against 144
+  per station-year. Under cold cloud, 51% of the gauges' rain falls, against
+  29% of the model's. The model's cloud shields, or its OLR → Tb conversion,
+  are worth a look.
+
+## Regions (since 2026-09-30)
+
+Every evaluation now uses the same regions, from `regions.py`: **ALL** (the
+evaluation box) and the autonomous communities **CAT** (Catalonia), **VAL**
+(Valencia), **BAL** (Balearic Islands), **MUR** (Murcia) and **AND**
+(Andalusia), as Natural Earth admin-1 polygons cut to the box. Polygons rather
+than boxes, so Valencia, Murcia and Andalusia do not overlap. Tracked storms
+use the polygons grown by 0.5° (`buffer_deg`), since storm centres sit
+offshore. The old LEV box is gone; the previous figures are in
+`figures/before_regions_change/`.
+
+Stations per region: hourly (AEMET/HyMEX) CAT 72, VAL 42, BAL 41, MUR 22,
+**AND 1** (no hourly comparison there); daily (AEMET) CAT 86, VAL 45, BAL 37,
+MUR 30, AND 116. The radar quality mask keeps about 60% of Andalusia.
+
+## Names for the paper
+
+- **AEMET** is the validated daily record (Arnau: P24, PMAX10..PMAX12h).
+- **AEMET/HyMEX** is the combined 10-min gauge dataset at clock hours.
+
+## Brightness temperature (`plot_tb_evaluation.py`)
+
+MERGIR against the model's OLR-derived Tb (Yang & Slingo, Stefan–Boltzmann)
+on the 0.1° hourly tracker grid, joint valid cell-hours, all months or a
+season. Figures and numbers in `figures/tb/`.
+
+ASON 2011–2020, whole domain:
+
+| | mean Tb | Tb ≤ 241 K | Tb ≤ 225 K | Tb p1 / p5 |
+|---|---|---|---|---|
+| MERGIR | 281.5 K | 4.30% | 0.70% | 228 / 244 K |
+| EPICC, Yang & Slingo | 286.6 K | 1.22% (×0.28) | 0.07% (×0.09) | 240 / 256 K |
+| EPICC, Stefan–Boltzmann | 260.9 K | 4.56% (×1.06) | 0.24% (×0.35) | 230 / 242 K |
+
+- **Yang & Slingo, the paper's conversion, has less than a third of the
+  observed cold cloud** (≤ 241 K) and a tenth of the cold cores (≤ 225 K):
+  its cold tail is about 12 K too warm. Stefan–Boltzmann gets the cold-cloud
+  fraction right but is 20 K too cold everywhere else (it caps near 285 K).
+  Neither conversion reproduces MERGIR; the cold-core deficit is common to
+  both, so part of it is the cloud field, not only the conversion.
+- **Timing:** MERGIR's cold cores peak at night and in the morning; the model's
+  (both conversions) peak at 15–18 UTC, in every region. This is the missing
+  nocturnal storm peak, seen in the cloud field.
+- **Consequence for the tracking:** with YS the model has 83 storms per year
+  against 108 observed; with SB 146. The PGW/present ratios are the same under
+  both (README above), but the absolute storm counts depend on the conversion.
+
+## Seasonal maxima (`plot_annual_maxima.py`)
+
+One maximum per station-season (≥ 80% validated days) of P24 and PMAX60 from
+the AEMET daily record, the model's over the same station-days; pooled per
+region and compared rank by rank (Gumbel axis). Numbers in
+`figures/arnau/arnau_model_maxima_<tag>_numbers.txt`.
+
+ASON, whole domain, 2,464 station-seasons: the top 10% of daily maxima are
+×1.19 in the model cell (×1.35 in the 3×3 max); the top 10% of 60-min maxima
+×0.95 (cell) and ×1.16 (3×3), the top 1% ×0.81 and ×0.99. So the hourly
+excess at p99–p99.9 does not extend to the largest hourly events: at the cell
+they fall short of the gauge record, as a 4 km² average against a point
+should. Interannual correlation of the regional mean daily rain: 0.88–0.99.
+
+## Radar-based symmetric storm tracking (`make_radar_tracking_input.py`)
+
+The storm-only comparison above defines observed storms by IMERG rain, which
+is far from the gauges at a point. Here EURADCLIM (quality mask) is
+block-averaged to the 0.1° tracker grid (`RADCOV_01H_RAIN_*`, valid where
+≥ 50% of the 2 km cells are valid radar), the coarsened model rain is cut to
+the same cell-hours (`MODRADCOV_01H_RAIN_*`), and both are tracked with
+MERGIR / the model YS Tb: datasets `rad` and `mod0.1_YS_pres_radcov` in
+`obs_config.datasets`, 2013–2020. Same storm definition, same area and hours.
+Radar coverage is 22% of the cell-hours, so the sample is small (about 25
+storms per year each side).
+
+ASON: counts 25.1 vs 24.4 per year; area ×1.03–1.08; duration ×1.4; peak
+×0.72; volume ×1.4 (p90). With rain of the model's own quality on both sides,
+the model's storms are as large, last longer and peak lower than the observed
+ones. The IMERG-based comparison (peak ×1.4) says the opposite about the
+peaks: IMERG's peaks are low. Figure `figures/paper/fig4b_storms_radar_*`.
+
+## Paper figures (`make_paper_figures.py`)
+
+Four figures for ALL (main text) and per region (supplement), from the
+evaluation outputs, in `figures/paper/` with a `_numbers.txt` each:
+
+| Figure | Content |
+|---|---|
+| `fig1_scales` | model/observed ratio (p99, p99.9) against accumulation window, 10 min to 24 h, vs the AEMET daily record; AEMET/HyMEX and EURADCLIM at 1 h; ranked station-season maxima of P24 and PMAX60 |
+| `fig2_where` | maps of the hourly P99.9 and mean-rain ratio to EURADCLIM (10 km blocks) with the gauge ratios as dots; EURADCLIM against the gauges |
+| `fig3_when` | diurnal cycle of rain, wet hours, storm hours (like for like), cold cloud tops; seasonal cycle; afternoon/night ratio by station altitude |
+| `fig4_storms` | storms vs IMERG + MERGIR: seasonal cycle, initiation hour, volume, relative track density (maps for ALL, distributions per region) |
+| `fig4b_storms_radar` | the radar-based symmetric pair |
+
+    python make_paper_figures.py                                  # ALL, ASON
+    python make_paper_figures.py --regions CAT VAL BAL MUR AND    # supplement
+
+Headline numbers (ALL, ASON) are in the `_numbers.txt` files; the gauge and
+radar references agree on the hourly extremes (P99.9 ×1.20 and ×1.18) and on
+the diurnal shape, and disagree on the mean (the gauges are drier than
+EURADCLIM by 1.27), which is why the mean-rain bias is reported against both.

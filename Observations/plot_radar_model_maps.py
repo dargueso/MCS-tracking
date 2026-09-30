@@ -39,6 +39,7 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
 import radar_config as cfg
+import regions
 import radar_utils as ru
 from plot_obs_model_comparison import INK, INK_MUTED, GRID
 from plot_obs_model_maps_relative import DIV, SEQ
@@ -148,8 +149,8 @@ def main():
                          f"{np.nanmean(fm[key][ok]):.3g}  (ratio "
                          f"{np.nanmean(fm[key][ok]) / np.nanmean(fr[key][ok]):.2f}), "
                          f"pattern r (log) {corr:.2f}")
-            for reg, (la0, lo0, la1, lo1) in cfg.subregions.items():
-                sub = ok & (lat >= la0) & (lat <= la1) & (lon >= lo0) & (lon <= lo1)
+            for reg, rmask in regions.masks(lat, lon, box=cfg.subregions["ALL"]).items():
+                sub = ok & rmask
                 if sub.sum():
                     lines.append(f"  {reg:4s} {np.mean(fr[key][sub]):8.3g} vs "
                                  f"{np.mean(fm[key][sub]):8.3g}  ratio "

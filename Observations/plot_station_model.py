@@ -47,6 +47,7 @@ from plot_obs_model_comparison import INK, INK_MUTED, GRID, COLORS
 from plot_obs_model_maps_relative import DIV
 from matplotlib.colors import TwoSlopeNorm, LogNorm
 import seasons
+import regions
 from plot_radar_model_qq import (PROBS, LABELLED, quantiles, bootstrap,
                                  MIN_BOOT_YEARS)
 
@@ -106,8 +107,8 @@ def load(months):
 
 
 def region_of(lat, lon):
-    return {name: (lat >= la0) & (lat <= la1) & (lon >= lo0) & (lon <= lo1)
-            for name, (la0, lo0, la1, lo1) in cfg.subregions.items()}
+    """{ALL, CAT, VAL, BAL, MUR, AND: bool per station}."""
+    return regions.masks(lat, lon, box=cfg.subregions["ALL"])
 
 
 def per_year_hist(values, valid, years, regions, edges):
@@ -607,7 +608,7 @@ def seasonal_cycle(regions):
     plt.close(fig)
     t = pd.DataFrame(table).pivot_table(index=["region", "month"], columns="series",
                                         values="mean_mm_day")
-    t.to_csv(f"{cfg.path_eval}/station_model_seasonal.csv", float_format="%.4g")
+    t.to_csv(f"{cfg.path_st_figs}/station_model_seasonal.csv", float_format="%.4g")
     allr = t.loc["ALL"]
     lines = ["\nSeasonal cycle, ALL, mean rain (mm/day) by month:"]
     for name in allr.columns:
@@ -624,14 +625,14 @@ def main():
     args = par.parse_args()
     logging.basicConfig(format="%(asctime)s | %(message)s", datefmt="%H:%M:%S",
                         level=logging.INFO)
-    os.makedirs(cfg.path_eval, exist_ok=True)
+    os.makedirs(cfg.path_st_figs, exist_ok=True)
     months, tag = seasons.resolve(args)
     d = load(months)
     regions = region_of(d["lat"], d["lon"])
 
     lines = [f"EPICC vs AEMET gauges, {tag}, {cfg.syear}-{cfg.eyear}, tiers {cfg.eval_tiers}"]
     q = hourly(d, regions, tag, args.nboot, joint_radar=False)
-    q.to_csv(f"{cfg.path_eval}/station_model_qq_{tag}.csv", index=False, float_format="%.4g")
+    q.to_csv(f"{cfg.path_st_figs}/station_model_qq_{tag}.csv", index=False, float_format="%.4g")
     lines.append("\nHourly quantiles, model/gauge ratio [95% year-block interval]:")
     for (reg, name), g in q.groupby(["region", "series"], sort=False):
         parts = [f"{LABELLED[p]} {r.ratio:.2f} [{r.ratio_lo:.2f}-{r.ratio_hi:.2f}]"
@@ -639,7 +640,7 @@ def main():
         lines.append(f"  {reg:4s} {name:15s} " + "  ".join(parts))
     if d["rad"] is not None and np.isfinite(d["rad"]["cell"]).any():
         qr = hourly(d, regions, tag, args.nboot, joint_radar=True)
-        qr.to_csv(f"{cfg.path_eval}/station_model_qq_{tag}_radar.csv", index=False,
+        qr.to_csv(f"{cfg.path_st_figs}/station_model_qq_{tag}_radar.csv", index=False,
                   float_format="%.4g")
         lines.append("\nJoint with EURADCLIM (radar-valid hours only):")
         for (reg, name), g in qr.groupby(["region", "series"], sort=False):
@@ -648,7 +649,7 @@ def main():
             lines.append(f"  {reg:4s} {name:15s} " + "  ".join(parts))
 
     dur, fac, nfac = durations(d, regions, tag, months)
-    dur.to_csv(f"{cfg.path_eval}/station_model_durations_{tag}.csv", index=False,
+    dur.to_csv(f"{cfg.path_st_figs}/station_model_durations_{tag}.csv", index=False,
                float_format="%.4g")
     lines.append(f"\nSeasonal maxima, model/gauge (median over station-seasons), ALL:")
     for key in ("cell", "nmax"):
@@ -658,7 +659,7 @@ def main():
                  f"(median of {nfac} station-seasons with a >= 5 mm hour)")
 
     day = daily(months, tag)
-    day.to_csv(f"{cfg.path_eval}/station_model_daily_{tag}.csv", index=False, float_format="%.4g")
+    day.to_csv(f"{cfg.path_st_figs}/station_model_daily_{tag}.csv", index=False, float_format="%.4g")
     lines.append(f"\nPaired daily, {len(day)} stations "
                  f"({(day.source == '10-min').sum()} 10-min, {(day.source == 'Arnau').sum()} Arnau-only):")
     for s in ("r", "r_spearman", "bias_ratio", "pod_1", "far_1", "ets_1", "pod_20", "far_20",
@@ -669,7 +670,7 @@ def main():
     lines += seasonal_cycle(regions)
     text = "\n".join(lines)
     print(text)
-    with open(f"{cfg.path_eval}/station_model_{tag}_numbers.txt", "w") as fh:
+    with open(f"{cfg.path_st_figs}/station_model_{tag}_numbers.txt", "w") as fh:
         fh.write(text + "\n")
 
 

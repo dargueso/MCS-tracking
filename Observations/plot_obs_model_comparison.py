@@ -179,7 +179,7 @@ def tail_summary(data, args):
                              "model_value": np.percentile(frame[key], q)})
             print(f"    {key:10s}" + "".join(f"{c:>22s}" for c in cells))
     print("\n  * = 95% interval excludes 1")
-    out = (args.out or f"{cfg.path_obs}/obs_model_comparison_{args.exp}.png")
+    out = (args.out or f"{cfg.path_figs_sat}/obs_model_comparison_{args.exp}.png")
     out = out.replace(".png", "_tail.csv")
     pd.DataFrame(rows).to_csv(out, index=False, float_format="%.4f")
     logging.info("wrote %s", out)
@@ -262,7 +262,7 @@ def main():
                  fontsize=12, color=INK, fontweight="bold", y=0.995)
     fig.tight_layout(rect=[0, 0.035, 1, 0.97])
 
-    out = args.out or f"{cfg.path_obs}/obs_model_comparison_{args.exp}.png"
+    out = args.out or f"{cfg.path_figs_sat}/obs_model_comparison_{args.exp}.png"
     fig.savefig(out, dpi=200, bbox_inches="tight", facecolor=fig.get_facecolor())
     logging.info("wrote %s", out)
 

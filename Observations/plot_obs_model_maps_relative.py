@@ -107,7 +107,7 @@ def figure_relative(tracks, args, proj):
                  f"mean) — {cfg.reg}, {cfg.syear}-{cfg.eyear}, {args.exp}",
                  fontsize=12, color=INK, fontweight="bold", y=0.98)
     fig.tight_layout(rect=[0, 0, 1, 0.955])
-    out = f"{cfg.path_obs}/obs_model_maps_{args.exp}_relative.png"
+    out = f"{cfg.path_figs_sat}/obs_model_maps_{args.exp}_relative.png"
     fig.savefig(out, dpi=200, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close(fig)
     logging.info("wrote %s", out)
@@ -160,7 +160,7 @@ def figure_seasonal(tracks, args, proj):
                  f"{cfg.reg}, {cfg.syear}-{cfg.eyear}, {args.exp}",
                  fontsize=12, color=INK, fontweight="bold", y=0.985)
     fig.tight_layout(rect=[0, 0.085, 1, 0.965])
-    out = f"{cfg.path_obs}/obs_model_maps_{args.exp}_seasonal.png"
+    out = f"{cfg.path_figs_sat}/obs_model_maps_{args.exp}_seasonal.png"
     fig.savefig(out, dpi=200, bbox_inches="tight", facecolor=fig.get_facecolor())
     plt.close(fig)
     logging.info("wrote %s", out)
@@ -215,7 +215,7 @@ def main():
 
     text = "\n".join(lines)
     print(text)
-    out = f"{cfg.path_obs}/obs_model_maps_{args.exp}_relative_numbers.txt"
+    out = f"{cfg.path_figs_sat}/obs_model_maps_{args.exp}_relative_numbers.txt"
     with open(out, "w") as fh:
         fh.write(text + "\n")
     logging.info("wrote %s", out)

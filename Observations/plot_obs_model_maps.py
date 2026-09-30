@@ -200,7 +200,7 @@ def main():
                  f"({cfg.reg}, {cfg.syear}-{cfg.eyear}, {args.exp}, 0.1° grid)",
                  fontsize=12, color=INK, fontweight="bold", y=0.98)
     fig.tight_layout(rect=[0, 0, 1, 0.955])
-    out = args.out or f"{cfg.path_obs}/obs_model_maps_{args.exp}.png"
+    out = args.out or f"{cfg.path_figs_sat}/obs_model_maps_{args.exp}.png"
     fig.savefig(out, dpi=200, bbox_inches="tight", facecolor=fig.get_facecolor())
     logging.info("wrote %s", out)
 

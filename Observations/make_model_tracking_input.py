@@ -114,7 +114,7 @@ def write(fileout, name, data, times, lat, lon, attrs, wrun):
         run=wrun, region=cfg.reg,
         grid=f"{cfg.target_res} deg, identical to the OBS_01H_* files",
         time_convention="stamped at the start of the hour, as the OBS files are "
-                        "(the source files are stamped at HH:25)")
+                        "(the source files are stamped mid-hour)")
     tmp = f"{fileout}.tmp"
     dset.to_netcdf(tmp, encoding={name: {"zlib": True, "complevel": 5}})
     os.replace(tmp, fileout)
@@ -142,13 +142,16 @@ def do_month(wrun, year, month, grid, mapping):
     nlat, nlon = lat.size, lon.size
 
     with xr.open_dataset(fin_pr) as dpr, xr.open_dataset(fin_ol) as dol:
-        # The EPICC hourly files are stamped at the centre of the accumulation
-        # window (HH:25, with time_bnds spanning HH:00 to HH:50 -- the six
-        # 10-minute stamps making up the hour), whereas the observations are
-        # stamped at the start of the hour. Same hour, different convention, so
-        # floor the model stamps to match; otherwise nothing downstream that
-        # joins the two on time would line up.
+        # The EPICC hourly files are stamped mid-hour (HH:30 with time_bnds
+        # HH:00-HH+1:00 in the clock-hour files on /scratch3; HH:25 in the
+        # original, 10-min-early files), whereas the observations are stamped at
+        # the start of the hour. Floor the model stamps to match; otherwise
+        # nothing downstream that joins the two on time would line up.
         times = pd.to_datetime(dpr.time.values).floor("h").values
+        # which hourly rain this is, recorded in the output and, through
+        # track_storms.py, in the tracked storms
+        rain_window = ("clock hour HH:00-HH+1:00" if "correction" in dpr.attrs
+                       else "original cdo hoursum: HH-1:50 to HH:50 (10 min early)")
         nt = times.size
         pr_out = np.empty((nt, nlat, nlon), dtype="float32")
         tb_out = {m: np.empty((nt, nlat, nlon), dtype="float32") for m in cfg.bt_methods}
@@ -168,7 +171,7 @@ def do_month(wrun, year, month, grid, mapping):
     os.makedirs(dirout, exist_ok=True)
     write(out_pr, "RAIN", pr_out, times, lat, lon,
           {"units": "mm h-1", "long_name": "EPICC precipitation, coarsened",
-           "source": f"{wrun} UIB_01H_RAIN"}, wrun)
+           "source": fin_pr, "rain_hour_window": rain_window}, wrun)
     longname = {"SB": "Brightness temperature from OLR (Stefan-Boltzmann), coarsened",
                 "YS": "Brightness temperature from OLR (Yang & Slingo 2001), coarsened"}
     for method in cfg.bt_methods:

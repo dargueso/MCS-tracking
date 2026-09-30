@@ -81,6 +81,12 @@ def track_month(dataset, year, month, exp):
     with xr.open_dataset(fin_pr) as dpr, xr.open_dataset(fin_tb) as dtb:
         pr_data = dpr.RAIN.values
         bt_data = dtb.TB.values
+        # Provenance from the input files themselves. mcs_config's bt_method is
+        # the 2 km production setting and says nothing about THIS dataset
+        # (MERGIR for obs, or whichever conversion the TB file was made with).
+        bt_method = dtb.TB.attrs.get("bt_method", "observed (MERGIR window Tb)")
+        rain_window = dpr.RAIN.attrs.get(
+            "rain_hour_window", "IMERG half-hours averaged to the clock hour")
         lat, lon = dpr.lat.values, dpr.lon.values
         times = pd.to_datetime(dpr.time.values)
         if not np.array_equal(dpr.time.values, dtb.time.values):
@@ -107,7 +113,9 @@ def track_month(dataset, year, month, exp):
         extra = dict(dset.attrs)
     extra.update(dataset=dataset, experiment=exp,
                  bt_source=os.path.basename(fin_tb),
-                 pr_source=os.path.basename(fin_pr))
+                 pr_source=os.path.basename(fin_pr),
+                 bt_method=bt_method, rain_source=fin_pr,
+                 rain_hour_window=rain_window)
     with xr.open_dataset(fileout) as dset:
         dset.load().assign_attrs(extra).to_netcdf(f"{fileout}.tmp")
     os.replace(f"{fileout}.tmp", fileout)

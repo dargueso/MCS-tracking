@@ -52,6 +52,7 @@ import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 
 import radar_config as cfg
+import regions
 import radar_utils as ru
 import obs_download_utils as util
 from plot_obs_model_comparison import INK, INK_MUTED, GRID
@@ -259,8 +260,7 @@ def main():
             lines.append(f"  fails {k:8s}: {(crit['box'] & ~v).sum() / nbox:6.1%}")
     lines.append(f"kept: {mask.sum()} ({mask.sum() / nbox:.1%}, "
                  f"{mask.sum() * DX_KM ** 2 / 1e3:.0f} x 10^3 km2)")
-    for name, (la0, lo0, la1, lo1) in cfg.subregions.items():
-        sub = (lat >= la0) & (lat <= la1) & (lon >= lo0) & (lon <= lo1)
+    for name, sub in regions.masks(lat, lon, box=cfg.subregions["ALL"]).items():
         lines.append(f"  {name}: {int((mask & sub).sum())} cells kept of {int(sub.sum())}")
     for line in lines:
         logging.info(line)
