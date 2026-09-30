@@ -81,7 +81,7 @@ eyear = 2020
 smonth = 1
 emonth = 12
 allmonths = [8,9,10,11]
-calc_summary=True
+calc_summary=False
 
 pr_max = 250
 wd_max = 50
@@ -89,7 +89,7 @@ exp = 'exp1'  # reference configuration (ST1)
 # Which brightness-temperature conversion the tracking used. 'SB' reads the
 # original ConvStormTracking/, 'YS' reads ConvStormTracking_YS/. It also goes
 # into the summary filename, so the two sets never overwrite one another.
-bt_method = 'SB'
+bt_method = 'YS'
 # Both conversions are tracked into ConvStormTracking_<method>. The original
 # ConvStormTracking/ holds the first SB run, kept as a record but superseded:
 # it predates the area-weighted rain volume, so its volumes are ~7% low.

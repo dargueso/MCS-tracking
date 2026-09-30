@@ -36,6 +36,7 @@ ROOTS = {"SB": (cfg.path_track_root, "ConvStormTracking_SB"),
          "YS": (cfg.path_track_root, "ConvStormTracking_YS")}
 RUNS = {"pres": "EPICC_2km_ERA5", "fut": "EPICC_2km_ERA5_CMIP6anom"}
 DX = 2000.0
+FALLBACK = {}   # storms per conversion that lack the 'volume' key
 METRICS = ("count", "area", "duration", "peak", "volume")
 
 
@@ -56,11 +57,14 @@ def load(bt, period, syear, eyear, months, exp):
                           & (track[:, 1] >= lon0) & (track[:, 1] <= lon1))
                 if not inside.any():
                     continue
-                # SB pickles predate the area-weighted 'volume' key, so fall back
-                # to the uniform-cell equivalent. ~7% low, and applied to SB only,
-                # so volume ratios below are the one metric to treat with care.
-                vol = (np.nansum(storm["volume"]) if "volume" in storm
-                       else np.nansum(storm["tot"]) * 1e-3 * DX ** 2)
+                # Pickles from before the area-weighted 'volume' key (the first
+                # SB run) fall back to the uniform-cell equivalent, ~7% low.
+                # Counted, so the report only warns when it actually happened.
+                if "volume" in storm:
+                    vol = np.nansum(storm["volume"])
+                else:
+                    vol = np.nansum(storm["tot"]) * 1e-3 * DX ** 2
+                    FALLBACK[bt] = FALLBACK.get(bt, 0) + 1
                 rows.append({"year": year,
                              "area": np.nanmax(storm["size"]) / 1e6,
                              "duration": len(storm["times"]),
@@ -152,10 +156,14 @@ def main():
     lines += ["",
               "'agree?' compares the two 95% intervals: overlapping means the",
               "climate signal is consistent between conversions, which is the",
-              "claim this check exists to support.",
-              "NOTE: SB pickles predate the area-weighted volume, so SB volumes use",
-              "the uniform-cell equivalent (~7% low). Treat the volume row as",
-              "indicative; the other four are like for like."]
+              "claim this check exists to support."]
+    if FALLBACK:
+        lines += ["NOTE: " + ", ".join(f"{n} {bt} storms" for bt, n in FALLBACK.items())
+                  + " lack the area-weighted volume and use the uniform-cell",
+                  "equivalent (~7% low). Treat the volume row as indicative."]
+    else:
+        lines += ["All storms carry the area-weighted volume: all five rows are like",
+                  "for like."]
 
     text = "\n".join(lines)
     print(text)
