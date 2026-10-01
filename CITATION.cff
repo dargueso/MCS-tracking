@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+title: "MCS-tracking: Mesoscale Convective System and convective storm tracker"
+abstract: >-
+  Tracker for mesoscale convective systems and convective storms in gridded
+  precipitation and outgoing longwave radiation fields, adapted from the
+  A. Prein MCS-tracking algorithm to ingest WRF output or any other netCDF
+  input. Includes the observational evaluation, sensitivity experiments and
+  analysis scripts of the EPICC Mediterranean storm study.
+authors:
+  - family-names: "Argüeso"
+    given-names: "Daniel"
+    affiliation: "University of the Balearic Islands"
+version: "2.0"
+date-released: 2026-10-01
+license: CC-BY-4.0
+repository-code: "https://github.com/dargueso/MCS-tracking"
+keywords:
+  - mesoscale convective systems
+  - convective storms
+  - storm tracking
+  - WRF
+  - Mediterranean
