@@ -81,11 +81,18 @@ eyear = 2020
 smonth = 1
 emonth = 12
 allmonths = [8,9,10,11]
-calc_summary=True
+calc_summary=False
 
 pr_max = 250
 wd_max = 50
 exp = 'exp1'  # reference configuration (ST1)
+# Command line: `python plot_scatter_hist_storm_characteristics.py exp2 summary`
+# selects another configuration and (with 'summary') rebuilds its summaries,
+# without editing this file; the defaults above apply otherwise.
+if len(sys.argv) > 1:
+    exp = sys.argv[1]
+if 'summary' in sys.argv[2:]:
+    calc_summary = True
 # Which brightness-temperature conversion the tracking used. 'SB' reads the
 # original ConvStormTracking/, 'YS' reads ConvStormTracking_YS/. It also goes
 # into the summary filename, so the two sets never overwrite one another.

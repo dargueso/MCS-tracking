@@ -16,6 +16,7 @@ POST=/scratch3/dargueso/postprocessed/EPICC
 OBS=/scratch3/dargueso/obs-mcs-tracking/tracking
 export MCS_CONFIG=mcs_config_sens
 cd $ROOT
+EXPS=${@:-exp6 exp7 exp8 exp9 exp10}     # experiments to run, e.g. ./run_sens.sh exp11
 
 guard() {   # $1 exp, $2 run or "-"
   SENS_EXP=$1 MCS_RUN=${2/-/EPICC_2km_ERA5} $PYT - <<'EOF'
@@ -26,12 +27,10 @@ exp, run = os.environ["SENS_EXP"], os.environ["MCS_RUN"]
 assert c.exp_label == exp and c.bt_method == "YS", (c.exp_label, c.bt_method)
 want = {"exp6": dict(require_bt=False), "exp7": dict(thres_pr=3, min_area_pr=250, min_time_pr=2, MCS_thres_pr=3, MCS_thres_peak_pr=10),
         "exp8": dict(min_time_pr=6, min_time_bt=8, MCS_min_time=8), "exp9": dict(smooth_sigma_pr=1, smooth_sigma_bt=1),
-        "exp10": dict(min_overlap=0.3)}[exp]
+        "exp10": dict(min_overlap=0.3), "exp11": dict(require_bt=False, min_area_pr=1000, MCS_thres_peak_pr=30)}[exp]
 for k, v in want.items():
     assert getattr(c, k) == v, (k, getattr(c, k), v)
 s = f"pr {c.thres_pr}/{c.min_area_pr}/{c.min_time_pr}h bt {c.thres_bt}/{c.min_area_bt}/{c.min_time_bt}h mcs {c.MCS_thres_pr}/{c.MCS_thres_peak_pr}/{c.MCS_min_time}h sigma {c.smooth_sigma_pr} bt_req {c.require_bt} overlap {c.min_overlap}"
-if sys.argv[0] or True:
-    pass
 if os.environ.get("CHECK_RAIN", "0") == "1":
     import xarray as xr
     assert c.wrun == run and c.path_in.endswith(run), (c.wrun, c.path_in)
@@ -46,7 +45,7 @@ EOF
 }
 
 echo "[$(date +%H:%M:%S)] ===== part 1: 0.1 deg pair, exp6..exp10 ====="
-for E in exp6 exp7 exp8 exp9 exp10; do
+for E in $EXPS; do
   guard $E - || { echo "   GUARD FAILED for $E: skipping"; continue; }
   echo "[$(date +%H:%M:%S)] tracking obs + mod0.1_YS_pres, $E"
   (cd Observations && SENS_EXP=$E $PYT track_storms.py obs mod0.1_YS_pres > $ROOT/sens_${E}_0.1deg.log 2>&1)
@@ -54,7 +53,7 @@ for E in exp6 exp7 exp8 exp9 exp10; do
 done
 
 echo "[$(date +%H:%M:%S)] ===== part 2: 2 km present and PGW, exp6..exp10 ====="
-for E in exp6 exp7 exp8 exp9 exp10; do
+for E in $EXPS; do
   for RUN in EPICC_2km_ERA5 EPICC_2km_ERA5_CMIP6anom; do
     CHECK_RAIN=1 guard $E $RUN || { echo "   GUARD FAILED for $E $RUN: skipping"; continue; }
     echo "[$(date +%H:%M:%S)] tracking $RUN, $E"

@@ -13,6 +13,9 @@ starting from the exp1 reference:
     exp10  linking: objects continue in time only with >= 30% overlap
            (2-D components linked step by step; the reference links any
            touching cell through a 3-D labelling)
+    exp11  intense rain only: no cloud shield, peak >= 30 mm/h, >= 1000 km2
+           (does the signal of exp1 reappear for intense rain systems
+           defined without any Tb?)
 
 Selected by environment variables, so mcs_config.py is never touched:
 
@@ -34,6 +37,7 @@ SENS = {
     "exp8": dict(min_time_pr=6, min_time_bt=8, MCS_min_time=8),
     "exp9": dict(smooth_sigma_pr=1, smooth_sigma_bt=1),
     "exp10": dict(min_overlap=0.3),
+    "exp11": dict(require_bt=False, min_area_pr=1000, MCS_thres_peak_pr=30),
 }
 DESCRIPTION = {
     "exp6": "rain only, no cloud shield required",
@@ -41,6 +45,7 @@ DESCRIPTION = {
     "exp8": "persistence: 6 h rain, 8 h cloud, 8 h storm",
     "exp9": "Gaussian smoothing, sigma 1 cell",
     "exp10": "linking with >= 30% overlap",
+    "exp11": "intense rain only: no cloud shield, peak 30 mm/h, 1000 km2",
 }
 
 exp_label = os.environ.get("SENS_EXP", "exp6")
