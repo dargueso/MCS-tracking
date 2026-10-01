@@ -32,6 +32,10 @@ import os
 from mcs_config import *          # noqa: F401,F403  paths, DT, geofile, regions, ...
 
 SENS = {
+    # exp4 and exp5 (the two threshold sets never tracked at 2 km with YS on the
+    # clock-hour rain; their old SB copies were deleted 2026-10-01)
+    "exp4": dict(thres_pr=15, MCS_thres_pr=15, MCS_thres_peak_pr=30),
+    "exp5": dict(thres_pr=15, MCS_thres_pr=15, MCS_thres_peak_pr=30, min_area_pr=1000, min_area_bt=2000),
     "exp6": dict(require_bt=False),
     "exp7": dict(thres_pr=3, MCS_thres_pr=3, min_area_pr=250, min_time_pr=2, MCS_thres_peak_pr=10),
     "exp8": dict(min_time_pr=6, min_time_bt=8, MCS_min_time=8),
@@ -40,6 +44,8 @@ SENS = {
     "exp11": dict(require_bt=False, min_area_pr=1000, MCS_thres_peak_pr=30),
 }
 DESCRIPTION = {
+    "exp4": "15 mm/h, 500 km2, shield 1000 km2, peak 30 mm/h",
+    "exp5": "15 mm/h, 1000 km2, shield 2000 km2, peak 30 mm/h",
     "exp6": "rain only, no cloud shield required",
     "exp7": "loose thresholds: 3 mm/h, 250 km2, 2 h, peak 10 mm/h",
     "exp8": "persistence: 6 h rain, 8 h cloud, 8 h storm",

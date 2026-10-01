@@ -25,7 +25,9 @@ sys.path.insert(0, '.'); sys.path.insert(0, 'Observations')
 import mcs_config_sens as c
 exp, run = os.environ["SENS_EXP"], os.environ["MCS_RUN"]
 assert c.exp_label == exp and c.bt_method == "YS", (c.exp_label, c.bt_method)
-want = {"exp6": dict(require_bt=False), "exp7": dict(thres_pr=3, min_area_pr=250, min_time_pr=2, MCS_thres_pr=3, MCS_thres_peak_pr=10),
+want = {"exp4": dict(thres_pr=15, MCS_thres_pr=15, MCS_thres_peak_pr=30, min_area_pr=500, min_area_bt=1000),
+        "exp5": dict(thres_pr=15, MCS_thres_pr=15, MCS_thres_peak_pr=30, min_area_pr=1000, min_area_bt=2000),
+        "exp6": dict(require_bt=False), "exp7": dict(thres_pr=3, min_area_pr=250, min_time_pr=2, MCS_thres_pr=3, MCS_thres_peak_pr=10),
         "exp8": dict(min_time_pr=6, min_time_bt=8, MCS_min_time=8), "exp9": dict(smooth_sigma_pr=1, smooth_sigma_bt=1),
         "exp10": dict(min_overlap=0.3), "exp11": dict(require_bt=False, min_area_pr=1000, MCS_thres_peak_pr=30)}[exp]
 for k, v in want.items():
