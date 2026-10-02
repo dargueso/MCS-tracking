@@ -132,7 +132,7 @@ configurations (paired year-block bootstrap, the format of
 `check_bt_robustness.py`) and the present-day model against IMERG + MERGIR on
 the 0.1° grid; `Plotting/plot_scatter_hist_obs_model.py <exp>` draws the
 observed-vs-model storm characteristics. The findings are summarised in
-`Analyses/EPICC/MCS-tracking/sensitivity_exp6-exp11_summary.md`: every
+`Analyses/EPICC/MCS-tracking/tracker_sensitivity_summary.md`: every
 cloud-based definition at the reference intensity reproduces the climate
 signal; without a cloud criterion the number and size of rain systems do not
 change while peak rate and volume still rise; with a 30 mm/h peak bar storms
