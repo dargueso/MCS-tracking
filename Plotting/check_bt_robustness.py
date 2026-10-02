@@ -83,11 +83,19 @@ def load(bt, period, syear, eyear, months, exp):
     return pd.DataFrame(rows)
 
 
-def summarise(frame, years):
-    """Storm count per year, and the median of each property."""
+# Which statistic of the per-storm properties the ratios compare. The
+# manuscript reports MEANS; the median is kept as the robust alternative.
+# Set from the command line (--stat) or by an importing script.
+STAT = "mean"
+
+
+def summarise(frame, years, stat=None):
+    """Storm count per year, and the mean (or median) of each property."""
+    stat = stat or STAT
+    agg = np.mean if stat == "mean" else np.median
     out = {"count": len(frame) / len(years)}
     for key in ("area", "duration", "peak", "volume"):
-        out[key] = np.median(frame[key]) if len(frame) else np.nan
+        out[key] = agg(frame[key]) if len(frame) else np.nan
     return out
 
 
@@ -126,12 +134,16 @@ def main():
     par.add_argument("--eyear", type=int, default=2020)
     par.add_argument("--months", type=int, nargs="+", default=[8, 9, 10, 11])
     par.add_argument("--nboot", type=int, default=10000)
+    par.add_argument("--stat", choices=["mean", "median"], default="mean",
+                     help="statistic of the per-storm properties (the manuscript reports means)")
     args = par.parse_args()
+    global STAT
+    STAT = args.stat
     rng = np.random.default_rng(20260929)
     years = list(range(args.syear, args.eyear + 1))
 
     lines = [f"Brightness-temperature robustness check, {args.exp}, "
-             f"{args.syear}-{args.eyear}, months {args.months}", "",
+             f"{args.syear}-{args.eyear}, months {args.months}, {args.stat} of the per-storm properties", "",
              "Does the PGW/present change depend on the OLR-to-Tb conversion?", ""]
 
     res = {}
@@ -156,8 +168,8 @@ def main():
         lines.append(f"{k:10s}" + "".join(f"{c:>26s}" for c in cells)
                      + f"{'yes' if overlap else 'NO':>10s}")
 
-    lines += ["", "Absolute values behind the ratios (per year for count, "
-                  "median otherwise):", "",
+    lines += ["", f"Absolute values behind the ratios (per year for count, "
+                  f"{args.stat} otherwise):", "",
               f"  {'':8s}" + "".join(f"{m:>12s}" for m in METRICS)]
     for bt in ("SB", "YS"):
         _, p, f, _ = res[bt]
@@ -177,7 +189,7 @@ def main():
 
     text = "\n".join(lines)
     print(text)
-    out = f"{cfg.path_figures}/MCS-tracking/check_bt_robustness_{args.exp}.txt"
+    out = f"{cfg.path_figures}/MCS-tracking/check_bt_robustness_{args.exp}{'' if args.stat == 'mean' else '_median'}.txt"
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w") as fh:
         fh.write(text + "\n")

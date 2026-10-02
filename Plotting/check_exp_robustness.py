@@ -77,7 +77,11 @@ def main():
     par.add_argument("--eyear", type=int, default=2020)
     par.add_argument("--months", type=int, nargs="+", default=[8, 9, 10, 11])
     par.add_argument("--nboot", type=int, default=10000)
+    par.add_argument("--stat", choices=["mean", "median"], default="mean",
+                     help="statistic of the per-storm properties (the manuscript reports means)")
     args = par.parse_args()
+    cb.STAT = args.stat
+    suffix = "" if args.stat == "mean" else "_median"
     rng = np.random.default_rng(20261001)
     years = list(range(args.syear, args.eyear + 1))
     root = cfg.path_track_root
@@ -85,7 +89,7 @@ def main():
     os.makedirs(fig_dir, exist_ok=True)
 
     lines = [f"Tracker-configuration robustness, Yang & Slingo, clock-hour rain, {args.syear}-{args.eyear}, "
-             f"months {args.months}, WME (timesteps clipped to the box)", "",
+             f"months {args.months}, WME (timesteps clipped to the box); {args.stat} of the per-storm properties", "",
              "Does the PGW/present change depend on how a storm is defined?", ""]
     rows = []
     res = {}
@@ -115,13 +119,13 @@ def main():
                 continue
             ok = [not (ci[k][1] < ref[3][k][0] or ref[3][k][1] < ci[k][0]) for k in METRICS]
             lines.append(f"  {exp:6s} " + "  ".join(f"{LABEL[k]} {'yes' if o else 'NO'}" for k, o in zip(METRICS, ok)))
-    lines += ["", "Absolute values (per year for count, median otherwise), present | PGW:", "",
+    lines += ["", f"Absolute values (per year for count, {args.stat} otherwise), present | PGW:", "",
               f"  {'exp':6s}" + "".join(f"{LABEL[k]:>24s}" for k in METRICS)]
     for exp, (r, p, f, ci, _, _) in res.items():
         lines.append(f"  {exp:6s}" + "".join(f"{p[k]:10.1f} | {f[k]:<10.1f}".rjust(24) for k in METRICS))
 
     # 0.1 deg: present-day model against the observations, same definitions
-    lines += ["", "0.1 deg grid, present day: EPICC (coarsened) / IMERG + MERGIR, same tracker and definition", "",
+    lines += ["", f"0.1 deg grid, present day: EPICC (coarsened) / IMERG + MERGIR, same tracker and definition ({args.stat})", "",
               f"  {'exp':6s} {'n mod/obs':>12s}" + "".join(f"{LABEL[k]:>14s}" for k in METRICS)]
     for exp in args.exps:
         obs = load_dir(f"{OBS_ROOT}/obs/{exp}", years, args.months)
@@ -138,9 +142,9 @@ def main():
 
     text = "\n".join(lines)
     print(text)
-    with open(f"{fig_dir}/check_exp_robustness.txt", "w") as fh:
+    with open(f"{fig_dir}/check_exp_robustness{suffix}.txt", "w") as fh:
         fh.write(text + "\n")
-    pd.DataFrame(rows).to_csv(f"{fig_dir}/check_exp_robustness.csv", index=False, float_format="%.4g")
+    pd.DataFrame(rows).to_csv(f"{fig_dir}/check_exp_robustness{suffix}.csv", index=False, float_format="%.4g")
 
     # figure: fut/pres ratio with intervals, one panel per metric, exp1 first
     exps = list(res)
@@ -161,13 +165,13 @@ def main():
         for sp in ("top", "right"):
             ax.spines[sp].set_visible(False)
     axes[0].set_ylabel("PGW / present", fontsize=8.5, color="#0b0b0b")
-    fig.suptitle("Climate change signal of the storm statistics under ten tracker definitions "
+    fig.suptitle(f"Climate change signal of the storm statistics ({args.stat} of the per-storm properties) under the tracker definitions "
                  f"(orange: reference exp1 and its interval; blue: thresholds raised; green: definition changed) — "
                  f"WME, {args.syear}-{args.eyear}, months {'-'.join(map(str, args.months))}",
                  fontsize=9.5, fontweight="bold", color="#0b0b0b", x=0.01, ha="left")
     fig.tight_layout(rect=[0, 0, 1, 0.93])
-    fig.savefig(f"{fig_dir}/check_exp_robustness.png", dpi=200, bbox_inches="tight", facecolor=fig.get_facecolor())
-    print(f"\nwrote {fig_dir}/check_exp_robustness.{{txt,csv,png}}")
+    fig.savefig(f"{fig_dir}/check_exp_robustness{suffix}.png", dpi=200, bbox_inches="tight", facecolor=fig.get_facecolor())
+    print(f"\nwrote {fig_dir}/check_exp_robustness{suffix}.{{txt,csv,png}}")
 
 
 if __name__ == "__main__":
