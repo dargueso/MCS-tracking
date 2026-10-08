@@ -6,14 +6,15 @@ abstract: >-
   Tracker for mesoscale convective systems and convective storms in gridded
   precipitation and outgoing longwave radiation fields, adapted from the
   A. Prein MCS-tracking algorithm to ingest WRF output or any other netCDF
-  input. Includes the observational evaluation, sensitivity experiments and
-  analysis scripts of the EPICC Mediterranean storm study.
+  input, packaged as the Python module mcstracking. Used for the EPICC
+  western-Mediterranean convective-storm study; the evaluation and analysis
+  scripts of that study are kept in a separate repository.
 authors:
   - family-names: "Argüeso"
     given-names: "Daniel"
     affiliation: "University of the Balearic Islands"
 version: "2.0"
-date-released: 2026-10-01
+date-released: 2026-10-08
 license: CC-BY-4.0
 repository-code: "https://github.com/dargueso/MCS-tracking"
 keywords:

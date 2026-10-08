@@ -1,36 +1,32 @@
-
-*.nc4
-*.nc
-PR_201607
-PR_201309
-*.npz
-MCS_201607
-MCS_201309
-CONUS_merg_20160701_4km-pixel.tar.gz64sxjvbftmp
-CONUS_merg_20160701_4km-pixel.tar.gz
-CONUS_3B-HHR.MS.MRG.3IMERG.20160701.tar.gz
-Clouds_201309
-Clouds_201607
+# Python
+__pycache__/
 *.pyc
-*.pyc
-__pycache__/Tracking_Functions_optimized.cpython-38.pyc
-!RAIN_test.nc
-!OLR_test.nc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
 
-# --- added 2026-09-29 ---------------------------------------------------
-# Manuscript drafts: Word files, not code
-*.docx
-# Run logs and captured output
-*.log
-*.out
-# Tracker output pickles, written by runs and tests (any PR_/BT_/MCS_ + YYYYMM)
+# Test data (release assets, see tests/README.md) and test output
+tests/data/*.nc
+test.nc
+
+# Tracker output written by runs
 PR_[0-9][0-9][0-9][0-9][0-9][0-9]
 BT_[0-9][0-9][0-9][0-9][0-9][0-9]
 MCS_[0-9][0-9][0-9][0-9][0-9][0-9]
-# Analysis outputs written beside the plotting scripts
-Plotting/storms_*.pkl
-Plotting/check_bt_robustness_*.txt
-*.png
-# Python caches
-__pycache__/
-*.pyc
+Storms_*.nc
+tracking_output/
+
+# Logs
+*.log
+*.out
+
+# Not part of the tracker (manuscripts, bundles, analysis outputs left on disk
+# from the paper project, which now lives in MedConvStorms_paper)
+*.docx
+*.zip
+*.pkl
+*.npz
+*.tar.gz
+Plotting/
+Observations/

@@ -1,139 +1,146 @@
-# Mesoscale Convective System and Convective storms algorithm.
-Optimized version based on A. Prein MCS-tracking.
-
-Adapted to ingest WRF model outputs, or any other netCDF with OLR and Precipitation at any frequency (hourly or 3-hourly is recommended). 
-It facilitates computing statistics such as the size of the storm, total volume of precipitation and maximum precipititation rate for each system.
+# MCS-tracking: mesoscale convective system and convective storm tracker
 
 [![DOI](https://zenodo.org/badge/474651021.svg)](https://doi.org/10.5281/zenodo.15732413)
-## Storm summaries: what is computed
 
-`Plotting/plot_scatter_hist_storm_characteristics.py` with `calc_summary=True`
-writes one pickle per climate,
+Python package `mcstracking`: identifies and tracks convective storms in gridded
+hourly precipitation and brightness-temperature fields, and computes per-storm
+statistics (footprint, rain volume, peak rain rate, lifetime, track). It is an
+optimised version of the A. Prein MCS-tracking algorithm
+([original notebook](https://colab.research.google.com/drive/1MrQFujQCFhesk0MCUSqB41Mx3AHEd1ua)),
+adapted to ingest WRF postprocessed output or any other netCDF with rain and
+outgoing longwave radiation (OLR) on a 2-D latitude/longitude grid.
 
-    storms_<period>_summary_<syear>-<eyear>_<m0>-<m1>_<reg>_<exp>_<bt>_m3.pkl
+Version 2.0 is the tracker used for the EPICC western-Mediterranean
+convective-storm study (present-day and pseudo-global-warming WRF simulations
+at 2 km, plus satellite observations). The evaluation, sensitivity experiments
+and analysis scripts of that study live in a separate repository
+(`MedConvStorms_paper`); this one holds the algorithm alone.
 
-holding one row per tracked storm. These are the input to every figure and
-statistic downstream, so the definitions below are the ones the manuscript
-inherits.
+## Installation
 
-### Region convention: clipped, not whole-track
+```bash
+conda env create -f MCStracking.yml        # Python 3.8 environment with every dependency
+conda activate MCStracking
+pip install -e . --no-build-isolation      # editable install; drop the flag with setuptools >= 64
+```
 
-A storm enters the summary if any of its timesteps falls inside the region box,
-but **only the timesteps inside the box contribute to its statistics** —
-duration included. A system that forms over the Atlantic and crosses into the
-domain is counted by the part of its life spent inside.
+Dependencies: numpy, scipy, pandas, xarray, netCDF4, joblib (Python >= 3.8).
 
-This is the project convention as of 2026-09-30 and `Plotting/check_bt_robustness.py`
-clips the same way. It matters: keeping the whole track whenever any step fell
-inside — which the robustness check used to do — raises the present-day median
-area from 5,366 to 6,280 km² and the median rain volume from 299 to 434 ×10⁶ m³,
-and changes the PGW/present volume ratio from 1.41 to 1.67. The two conventions
-are not interchangeable and results from one must not be quoted beside the other.
+## How it works
 
-### Columns
+1. **Precipitation objects**: cells with rain >= `thres_pr` are labelled as
+   3-D (time, y, x) connected components; objects smaller than `min_area_pr`
+   or shorter than `min_time_pr` are dropped.
+2. **Cloud-shield objects**: the same on brightness temperature <= `thres_bt`
+   with `min_area_bt` and `min_time_bt`.
+3. **Storms (MCS)**: a precipitation object qualifies when its lifetime peak
+   rain rate reaches `MCS_thres_peak_pr`, its maximum reaches `MCS_thres_pr`,
+   it is at least `MCS_min_area` and `MCS_min_time`, and, unless
+   `require_bt = False`, it is overlain by a cloud shield of at least
+   `MCS_min_area_bt` with a cold core <= `MCS_thres_bt`.
+4. Objects that touch across the date line are reconnected and objects that
+   merge and split are broken up along their tracks.
 
-| column | meaning | unit |
+With `min_overlap > 0`, objects are 2-D components linked hour to hour only
+where they overlap by that fraction (one successor and one predecessor each)
+instead of the 3-D labelling that links anything touching.
+
+`olr_to_tb(olr, method)` converts OLR to brightness temperature: `"YS"`
+(Ohring et al. 1984 as given in Yang & Slingo 2001, a window-channel Tb, the
+reference) or `"SB"` (the grey-body inversion `(OLR/sigma)^0.25`, ~22 K
+colder). The 241 K / 225 K thresholds come from the satellite literature and
+are defined on window Tb, so use `"YS"` with them.
+
+## Configuration
+
+All thresholds and options live in a plain Python module; the reference values
+(exp1 of the EPICC study) are in `mcstracking/default_config.py` and
+`mcs_config.py` at the repository root is a documented example that starts
+from them. Which module is used is decided by `mcstracking.load_config()`:
+
+| `MCS_CONFIG` | configuration used |
+|---|---|
+| unset | `mcs_config` on `sys.path` or in the working directory; else the packaged defaults |
+| a module name (`my_config`) | that module, imported from `sys.path` |
+| a path (`/path/to/my_config.py`) | that file; its directory is put on `sys.path`, so `from mcs_config import *` inside it works |
+
+| setting | reference | meaning |
 |---|---|---|
-| `storm_id` | index within the period, after the region filter | |
-| `prmax` | peak instantaneous rain rate over the storm's in-region life | mm/h |
-| `wspd_max` | max of the hourly-mean 10-m wind over the storm footprint — not a gust | m/s |
-| `max_size` | largest instantaneous footprint | km² |
-| `mean_size` | footprint averaged over the in-region lifetime | km² |
-| `tot_vol` | rain volume integrated over the in-region life, area-weighted per cell | m³ |
-| `duration` | number of in-region timesteps | h |
-| `duration_track` | full track length, for reference | h |
-| `mean_int` | volume-consistent mean rain rate, `tot_vol / (mean_size · duration)` | mm/h |
-| `pw_mean`, `pw_sum` | precipitable water over the footprint, 3 h before each step | mm |
-| `mcape_mean`, `mcape_max` | MCAPE over the footprint, 3 h before each step | J/kg |
+| `DT` | 1 | time step of the input [h] |
+| `smooth_sigma_pr`, `smooth_sigma_bt` | 0 | Gaussian smoothing of rain and Tb [cells] |
+| `thres_pr`, `min_area_pr`, `min_time_pr` | 5 mm/h, 500 km2, 3 h | precipitation objects |
+| `thres_bt`, `min_area_bt`, `min_time_bt` | 241 K, 1000 km2, 5 h | cloud-shield objects |
+| `MCS_thres_pr`, `MCS_thres_peak_pr` | 5, 15 mm/h | storm maximum and lifetime-peak rain rate |
+| `MCS_min_area`, `MCS_min_area_bt` | = `min_area_pr`, `min_area_bt` | storm rain and shield areas |
+| `MCS_thres_bt`, `MCS_min_time` | 225 K, 5 h | cold core and storm lifetime |
+| `require_bt`, `min_overlap` | True, 0.0 | the two definition options above |
+| `bt_method`, `exp_label`, `write_nc` | "YS", "exp1", True | provenance written to the output, and whether to write the netCDF |
+| `path_in`, `wrun`, `path_out` | | input root, run name and output directory for the WRF driver |
 
-`mean_int` is defined so that
+Name a different threshold set with a different `exp_label`: the label and
+every threshold are written into the output netCDF attributes, so files from
+different configurations can always be told apart.
 
-    tot_vol == mean_size · mean_int · duration
+## Running
 
-holds exactly for every storm. That is what lets the manuscript's volume
-decomposition
+### WRF driver
 
-    Δln R = Δln N + Δln A + Δln I + Δln D + ε,    R = N·A·I·D
+Input layout: `{path_in}/RAIN/UIB_01H_RAIN_YYYY-MM.nc` (variable `RAIN`,
+mm/h) and `{path_in}/OLR/UIB_01H_OLR_YYYY-MM.nc` (variable `OLR`, W m-2), one
+month per file, hourly, 2-D `lat` and `lon`. The driver tracks every month
+found, in parallel, and writes into `path_out`.
 
-close with a residual ε that is purely the cross-storm covariance between the
-four factors, rather than a definitional mismatch. Note that ε is not small —
-storms that grow larger also intensify and last longer — so the decomposition
-should be reported with ε shown rather than folded into the other terms.
+```bash
+MCS_CONFIG=/path/to/my_config.py mcstracking-wrf       # or: python -m mcstracking.wrf_driver
+```
 
-Two cautions when using these columns:
+Run-time overrides (environment variables): `MCS_MONTHS=2014-09,2014-10`
+tracks only those months; `MCS_NJOBS` months in parallel (default 10);
+`MCS_PATH_OUT` replaces `path_out`; `MCS_WRITE_NC=0` skips the netCDF.
 
-- **Means, not medians, are what decompose.** R is a sum, so only means are
-  additive in logs. The distribution tables elsewhere report medians, and the
-  two differ because the distributions are right-skewed.
-- **`mean_int` is not `prmax`.** The volume-consistent mean rain rate and the
-  lifetime peak rate respond differently to warming, and conflating them
-  overstates the intensity contribution to the volume change.
+### Python
 
-### Environmental fields
+```python
+import pandas as pd, xarray as xr
+from mcstracking import MCStracking, olr_to_tb, default_config
 
-`WSPD10` is hourly; `PW` and `CAPE2D` are 3-hourly and are sampled **3 hours
-before** each storm timestep, so they describe the pre-storm environment rather
-than the storm's own perturbation of it. Storm times are floored to the clock
-hour before pairing: rain is stamped at the middle of its accumulation window
-(HH:30 in the clock-hour files) and `method='nearest'` would break the tie
-upward, silently pairing every storm with the following hour's fields.
+pr = xr.open_dataset("RAIN.nc"); olr = xr.open_dataset("OLR.nc")
+times = pd.DatetimeIndex(pr.time.values)
+storms, mask = MCStracking(pr.RAIN.values, olr_to_tb(olr.OLR.values, "YS"), times,
+                           pr.lon.values, pr.lat.values,
+                           nc_file="Storms.nc", path_out="tracked", cfg=default_config)
+```
 
-`CAPE2D` holds `lev = (mcape, mcin, lcl, lfc)`; MCAPE is `lev=0`. The summary
-builder asserts `lev == 4` — files written before 2026-09-30 had the four
-variables along `time` and the times of day along `lev`; they were converted
-in place on 2026-09-30 (`EPICC_scripts/WRF_processing/fix_cape2d_layout.py`)
-and the old copies deleted.
+`cfg` is any module-like object with the settings above (`cfg=None` resolves
+it as described). Rain and Tb are `(time, y, x)` arrays; `times` a
+`DatetimeIndex`.
 
-## Tracker configurations: exp1–exp11
+## Output
 
-`mcs_config.py` holds the reference configuration (exp1 = ST1 in the
-manuscript) and is the one every analysis of the reference storms reads. Do
-not edit it to run another configuration: the tracker, `MCS_tracking_WRF.py`
-and `Observations/track_storms.py` import the settings module named by the
-environment variable `MCS_CONFIG` (default `mcs_config`), and the other
-configurations live in `mcs_config_sens.py`, selected with `SENS_EXP` and
-`MCS_RUN`:
+- `PR_YYYYMM`, `BT_YYYYMM`, `MCS_YYYYMM`: pickled dicts (`pandas.read_pickle`),
+  one entry per precipitation object, cloud object and storm. Each entry holds
+  per-time-step arrays over the object's life: `times`, `size` [km2], `tot`
+  (rain summed over the footprint), `volume` (area-weighted rain volume),
+  `max`, `mean`, `min` (rain rate over the footprint), `track` and
+  `mass_center_loc` (centre positions) and `speed`. Written to `path_out`; a
+  month with no qualifying storm writes no `MCS_` file.
+- `UIB_01H_Storms_YYYY-MM.nc` (if `write_nc`): `PR`, `BT`, and the labelled
+  masks `PR_objects`, `BT_objects`, `MCS_objects` on the full grid (~2 GB per
+  month at 2 km), with every threshold, `bt_method`, `exp_label`, `require_bt`,
+  `min_overlap` and the rain file provenance as global attributes.
 
-    MCS_CONFIG=mcs_config_sens SENS_EXP=exp6 MCS_RUN=EPICC_2km_ERA5 python MCS_tracking_WRF.py
-    MCS_CONFIG=mcs_config_sens SENS_EXP=exp6 python Observations/track_storms.py obs mod0.1_YS_pres
-    ./run_sens.sh exp6 exp7          # both, 0.1 deg pair then 2 km present and PGW
+## Tests
 
-Every setting is written explicitly in `mcs_config_sens.py` (the exp1 values,
-then the experiment's changes), so a run does not depend on the state of
-`mcs_config.py`. `run_st2_st5.sh` is the older driver for exp2–exp5 that
-rewrites `mcs_config.py` with sed and restores it; prefer the environment
-mechanism.
+```bash
+tests/fetch_test_data.sh      # 150 MB of test data from the GitHub release assets
+pytest tests
+```
 
-| exp | kind | definition (changes from exp1) |
-|---|---|---|
-| exp1 | reference | rain ≥ 5 mm/h, ≥ 500 km², ≥ 3 h, lifetime peak ≥ 15 mm/h; cloud shield Tb ≤ 241 K, ≥ 1000 km², ≥ 5 h, core ≤ 225 K; ≥ 5 consecutive hours |
-| exp2 | ST2 | rain ≥ 1000 km², shield ≥ 2000 km² |
-| exp3 | ST3 | rain ≥ 1000 km², shield ≥ 10 000 km², peak ≥ 10 |
-| exp4 | bar raised | rain ≥ 15 mm/h (object and MCS threshold), peak ≥ 30 |
-| exp5 | bar raised | as exp4, rain ≥ 1000 km², shield ≥ 2000 km² |
-| exp6 | definition | rain only: no cloud shield (`require_bt = False`) |
-| exp7 | definition | loose: 3 mm/h, 250 km², 2 h, MCS threshold 3, peak 10 |
-| exp8 | definition | persistence: 6 h rain object, 8 h cloud object, 8 h storm |
-| exp9 | definition | Gaussian smoothing, σ = 1 cell, on rain and Tb |
-| exp10 | definition | linking with ≥ 30% overlap (`min_overlap = 0.3`): 2-D components linked hour to hour, one successor and one predecessor per object, instead of the 3-D labelling that merges anything touching |
-| exp11 | definition | intense rain only: no cloud shield, peak ≥ 30 mm/h, ≥ 1000 km² |
+See `tests/README.md`. The full-tracker test checks 17 storms and three
+statistics to full precision and is the regression test for any change to the
+numerics.
 
-The two tracker options behind exp6, exp10 and exp11 (`require_bt`,
-`min_overlap`; `label_objects()` in `tracking_functions_optimized.py`) default
-to the reference behaviour and are recorded in the output netCDF attributes
-together with `exp_label`. Output goes to
-`<path_track_root>/<run>/ConvStormTracking_YS/<exp>/` at 2 km and to
-`obs-mcs-tracking/tracking/{obs,mod0.1_YS_pres}/<exp>/` on the 0.1° grid. All
-eleven configurations are tracked for both climates and on the 0.1° pair
-(Yang & Slingo, clock-hour rain, as of 2026-10-01).
+## Citing
 
-`Plotting/check_exp_robustness.py` compares the PGW/present ratios of all
-configurations (paired year-block bootstrap, the format of
-`check_bt_robustness.py`) and the present-day model against IMERG + MERGIR on
-the 0.1° grid; `Plotting/plot_scatter_hist_obs_model.py <exp>` draws the
-observed-vs-model storm characteristics. The findings are summarised in
-`Analyses/EPICC/MCS-tracking/tracker_sensitivity_summary.md`: every
-cloud-based definition at the reference intensity reproduces the climate
-signal; without a cloud criterion the number and size of rain systems do not
-change while peak rate and volume still rise; with a 30 mm/h peak bar storms
-become more frequent in the warmer climate.
+See `CITATION.cff`. The archived releases are on Zenodo under the concept DOI
+above. Licence: CC BY 4.0.

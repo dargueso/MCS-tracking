@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcstracking"
+version = "2.0.0"
+description = "Tracker for mesoscale convective systems and convective storms in gridded precipitation and OLR/brightness-temperature fields"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "CC-BY-4.0"}
+authors = [{name = "Daniel Argüeso", email = "d.argueso@uib.es"}]
+keywords = ["mesoscale convective systems", "convective storms", "storm tracking", "WRF"]
+dependencies = [
+    "numpy>=1.22",
+    "scipy>=1.8",
+    "pandas>=1.4",
+    "xarray>=0.20",
+    "netCDF4>=1.5",
+    "joblib>=1.1",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.urls]
+Repository = "https://github.com/dargueso/MCS-tracking"
+Archive = "https://doi.org/10.5281/zenodo.15732413"
+
+[project.scripts]
+mcstracking-wrf = "mcstracking.wrf_driver:main"
+
+[tool.setuptools]
+packages = ["mcstracking"]
