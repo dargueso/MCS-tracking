@@ -153,5 +153,5 @@ numerics.
 
 ## Citing
 
-See `CITATION.cff`. The archived releases are on Zenodo under the concept DOI
-above. Licence: CC BY 4.0.
+See `CITATION.cff`. Version 2.0 is archived at https://doi.org/10.5281/zenodo.23242955;
+the concept DOI above always resolves to the latest version. Licence: CC BY 4.0.

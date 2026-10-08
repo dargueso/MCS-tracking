@@ -16,6 +16,14 @@ authors:
 version: "2.0"
 date-released: 2026-10-08
 license: CC-BY-4.0
+doi: 10.5281/zenodo.23242955
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.23242955
+    description: "Version 2.0 archive"
+  - type: doi
+    value: 10.5281/zenodo.15732413
+    description: "Concept DOI, all versions"
 repository-code: "https://github.com/dargueso/MCS-tracking"
 keywords:
   - mesoscale convective systems
