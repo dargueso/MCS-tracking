@@ -30,3 +30,6 @@ tracking_output/
 *.tar.gz
 Plotting/
 Observations/
+
+# netCDF never belongs in the repository (test data are release assets)
+*.nc
