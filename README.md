@@ -18,13 +18,24 @@ and analysis scripts of that study live in a separate repository
 
 ## Installation
 
+Any of these works; the dependencies (numpy, scipy, pandas, xarray, netCDF4,
+joblib; Python >= 3.8) are declared in `pyproject.toml`, so pip installs them.
+
 ```bash
-conda env create -f MCStracking.yml        # Python 3.8 environment with every dependency
-conda activate MCStracking
-pip install -e . --no-build-isolation      # editable install; drop the flag with setuptools >= 64
+# straight from GitHub, into any environment
+pip install git+https://github.com/dargueso/MCS-tracking.git@v2.0
+
+# a conda environment with current versions (conda-forge), then an editable install
+conda env create -f environment.yml && conda activate mcstracking
+pip install -e .
+
+# the pinned Python 3.8 environment the EPICC storm study was produced with
+conda env create -f MCStracking.yml && conda activate MCStracking
+pip install -e . --no-build-isolation      # setuptools < 64 there; drop the flag elsewhere
 ```
 
-Dependencies: numpy, scipy, pandas, xarray, netCDF4, joblib (Python >= 3.8).
+The test suite gives the same results on both environments (numpy 1.22 to
+2.5, pandas 1.4 to 3.0).
 
 ## How it works
 

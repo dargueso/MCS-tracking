@@ -1,0 +1,20 @@
+# Current environment for the tracker (unpinned, conda-forge):
+#     conda env create -f environment.yml && conda activate mcstracking
+#     pip install -e .
+# Tested 2026-10-08 with Python 3.14, numpy 2.5, scipy 1.18, pandas 3.0,
+# xarray 2026.9. MCStracking.yml is the pinned Python 3.8 environment the
+# EPICC storm study was produced with; both pass the test suite with the
+# same results.
+name: mcstracking
+channels:
+  - conda-forge
+dependencies:
+  - python>=3.10
+  - numpy
+  - scipy
+  - pandas
+  - xarray
+  - netcdf4
+  - joblib
+  - pytest
+  - pip
