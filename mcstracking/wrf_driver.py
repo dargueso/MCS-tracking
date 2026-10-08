@@ -135,7 +135,7 @@ def storm_tracking(pr_finname):
     lat = pr.lat.values
     lon = pr.lon.values
 
-    times = pd.date_range(pr.time.isel(time=0).values, end=pr.time.isel(time=-1).values, freq='1H')
+    times = pd.date_range(pr.time.isel(time=0).values, end=pr.time.isel(time=-1).values, freq='1h')
 
     end_time = time.time()
     logging.debug(f"======> 'Loading data: {(end_time-start_time):.2f} seconds \n")

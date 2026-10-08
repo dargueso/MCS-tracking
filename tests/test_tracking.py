@@ -18,17 +18,20 @@ def test_area_simple():
     lat = np.array([[39.0,40.0],[39.1,40.1]])
     lon = np.array([[1.0,2.0],[1.1,2.1]])
     dx,dy,area,grid_spacing = calc_grid_distance_area(lat,lon)
-    assert area[0,1] == 1966730866.401264
+    assert np.isclose(area[0,1], 1966730866.401264, rtol=1e-12)
 
 @needs_data
 def test_area():
 
     pr_test = xr.open_dataset(f"{DATA}/RAIN_test.nc")
     dx, dy, area, grid_spacing = calc_grid_distance_area(pr_test.lat.values,pr_test.lon.values)
-    assert area[100,100] == 4174262.3368386314
-    assert dx[100,100] == 2043.120533315232
-    assert dy[100,100] == 2043.0817804299295
-    assert grid_spacing == 2061.1917602097433
+    # float64 values (the file holds float32 coordinates; the tracker promotes
+    # them). Before v2.0 (re-cut) the area was computed in float32 and read
+    # 4174262.3368 here, depending on the numpy version.
+    assert np.isclose(area[100,100], 4173593.0900924527, rtol=1e-12)
+    assert np.isclose(dx[100,100], 2043.0957234457928, rtol=1e-12)
+    assert np.isclose(dy[100,100], 2042.7790250832984, rtol=1e-12)
+    assert np.isclose(grid_spacing, 2061.1917937651656, rtol=1e-12)
 
 @needs_data
 def test_MCStracking(tmp_path):
@@ -42,7 +45,7 @@ def test_MCStracking(tmp_path):
     lat = pr_test.lat.values
     lon = pr_test.lon.values
 
-    times = pd.date_range(pr_test.time.isel(time=0).values, end=pr_test.time.isel(time=-1).values, freq='1H')
+    times = pd.date_range(pr_test.time.isel(time=0).values, end=pr_test.time.isel(time=-1).values, freq='1h')
 
     grMCSs, MCS_objects = MCStracking(
             pr_data,

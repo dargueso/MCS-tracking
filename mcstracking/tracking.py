@@ -22,8 +22,6 @@ import netCDF4 as nc
 import pandas as pd
 import xarray as xr
 
-from scipy.ndimage import filters
-from scipy.ndimage import morphology
 from scipy import ndimage
 
 from .constants import const
@@ -50,6 +48,11 @@ def calc_grid_distance_area(lat,lon):
         area: area of grid cell (m2)
         grid_distance: average grid distance over the domain (m)
     """
+    # Compute in float64 whatever the file holds: with float32 coordinates the
+    # cell area is off by ~1.6e-4 (670 m2 at 2 km) and, worse, depends on the
+    # numpy version's float32 trigonometry.
+    lat = np.asarray(lat, dtype=np.float64)
+    lon = np.asarray(lon, dtype=np.float64)
     dy = np.zeros(lat.shape)
     dx = np.zeros(lon.shape)
 
@@ -578,7 +581,7 @@ def MCStracking(
     # --------------------------------------------------------
     logging.debug("        track  precipitation")
 
-    pr_smooth= filters.gaussian_filter(
+    pr_smooth= ndimage.gaussian_filter(
         pr_data, sigma=(0, smooth_sigma_pr, smooth_sigma_pr)
     )
     pr_mask = pr_smooth >= thres_pr * DT
@@ -620,7 +623,7 @@ def MCStracking(
     # TRACKING CLOUD (BT) OBJECTS
     # --------------------------------------------------------
     logging.debug("            track  clouds")
-    bt_smooth = filters.gaussian_filter(
+    bt_smooth = ndimage.gaussian_filter(
         bt_data, sigma=(0, smooth_sigma_bt, smooth_sigma_bt)
     )
     bt_mask = bt_smooth <= thres_bt
@@ -737,7 +740,7 @@ def MCStracking(
 
             ## Keep bt objects (entire) that partially overlap with pr object
 
-            bt_object_overlap = np.in1d(bt_objects[time_slice].flatten(), objects_overlap).reshape(bt_objects[time_slice].shape)
+            bt_object_overlap = np.isin(bt_objects[time_slice].flatten(), objects_overlap).reshape(bt_objects[time_slice].shape)
 
             # Get size of all cloud (bt) objects together
             # We get size of all cloud objects that overlap partially with pr object
